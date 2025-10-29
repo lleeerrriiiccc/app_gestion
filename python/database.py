@@ -24,10 +24,10 @@ def read_data(query):
     conn.close()
     return results
 
-def write_data(query, data):
+def write_data(query):
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute(query, data)
+    cursor.execute(query)
     conn.commit()
     cursor.close()
     conn.close()
@@ -47,4 +47,16 @@ def delete_data(query, data):
     conn.commit()
     cursor.close()
     conn.close()
+
+def check_username(username):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users WHERE user = %s", (username,))
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    if count > 0:
+        return True
+    else:
+        return False
 
