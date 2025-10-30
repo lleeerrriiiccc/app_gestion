@@ -1,0 +1,133 @@
+<!-- upload_fragment.html - invoice upload module included in dashboard -->
+<div class="card card--narrow" id="upload-module">
+    <div class="module-header" aria-hidden="false">
+        <div class="badge">Módulo Facturas</div>
+        <div style="font-size:13px;color:var(--muted)">Subir factura · Guardar registro</div>
+    </div>
+
+    <h3 style="margin:0 0 8px 0">Subir factura</h3>
+    <p class="small">Selecciona un archivo y completa los datos del cliente. El archivo se guardará en el servidor y se registrará en la base de datos.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data" style="margin-top:12px">
+        <div>
+            <label for="file">Archivo (PDF/JPG)</label>
+            <input id="file" name="file" type="file" required accept=".pdf,image/*">
+        </div>
+
+        <div>
+            <label for="client">Cliente</label>
+            <input id="client" name="client" type="text" required placeholder="Nombre del cliente" autocomplete="off">
+            <div id="suggestions" class="suggestion-content"></div>
+        </div>
+
+        <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="cliente@ejemplo.com">
+        </div>
+
+        <div style="margin-top:6px">
+            <label><input type="checkbox" id="checkbox" name="checkbox"> Factura pendiente de pago</label>
+        </div>
+
+        <div class="actions" style="margin-top:10px">
+            <button type="submit" class="primary">Subir y guardar</button>
+            <button type="button" class="ghost" onclick="document.getElementById('uploadForm').reset()">Limpiar</button>
+        </div>
+
+        <div id="uploadMessage" role="status" aria-live="polite" style="margin-top:10px"></div>
+    </form>
+</div>
+
+<script>
+    (function(){
+        const form = document.getElementById('uploadForm');
+        const msg = document.getElementById('uploadMessage');
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        function show(text, cls){
+            msg.textContent = text;
+            msg.className = cls;
+        }
+
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            show('', '');
+
+            const f = form.querySelector('#file').files[0];
+            const client = form.client.value.trim();
+            const email = form.email.value.trim();
+            const checkbox = form.checkbox.checked ? 'on' : '';
+
+            if (!f) { show('Selecciona un archivo.', 'error'); return; }
+            if (!client) { show('El cliente es obligatorio.', 'error'); return; }
+
+            const fd = new FormData();
+            fd.append('file', f);
+            fd.append('client', client);
+            fd.append('email', email);
+            fd.append('checkbox', checkbox);
+
+            submitBtn.disabled = true;
+            show('Subiendo…', 'small');
+
+            try {
+                const res = await fetch('/upload', {
+                    method: 'POST',
+                    body: fd
+                });
+
+                const ct = res.headers.get('Content-Type') || '';
+                let data = ct.includes('application/json') ? await res.json() : await res.text();
+
+                if (res.ok) {
+                    show(typeof data === 'string' ? data : (data.message || 'Subida correcta.'), 'success');
+                    // optionally reset
+                    // form.reset();
+                } else {
+                    show(typeof data === 'string' ? data : (data.error || 'Error al subir.'), 'error');
+                }
+            } catch (err) {
+                show('No se pudo conectar con el servidor.', 'error');
+                console.error(err);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // --- Autocomplete for client input ---
+        const clientInput = document.getElementById('client');
+        const suggestionsDiv = document.getElementById('suggestions');
+
+        clientInput.addEventListener('input', function() {
+            const data = this.value;
+            if (data.length < 2) {
+                suggestionsDiv.innerHTML = '';
+                return;
+            }
+            fetch(`/data?data=${encodeURIComponent(data)}`)
+                .then(r => r.json())
+                .then(arr => {
+                    suggestionsDiv.innerHTML = '';
+                    const width = clientInput.offsetWidth;
+                    suggestionsDiv.style.width = width + 'px';
+                    arr.forEach(name => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion';
+                        div.textContent = name;
+                        suggestionsDiv.appendChild(div);
+                    });
+                })
+                .catch(err => {
+                    suggestionsDiv.innerHTML = '';
+                    console.error(err);
+                });
+        });
+
+        suggestionsDiv.addEventListener('click', function(e){
+            if (e.target && e.target.classList.contains('suggestion')) {
+                clientInput.value = e.target.textContent;
+                suggestionsDiv.innerHTML = '';
+            }
+        });
+    })();
+</script>

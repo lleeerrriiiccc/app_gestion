@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard - App Gestión</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+    <div class="layout">
+        <aside>
+            <div class="brand">App Gestión</div>
+            <input id="filter" class="search" placeholder="Filtrar menú..." />
+            <nav style="margin-top:12px">
+                <ul id="menu" class="menu">
+                    <!-- Enlaces se generan con JS -->
+                </ul>
+            </nav>
+            <div style="position:relative;bottom:0;margin-top:18px;font-size:13px;color:rgba(255,255,255,0.8)">
+                Versión sencilla · Dashboard
+            </div>
+        </aside>
+
+        <main>
+            <div class="top">
+                <h1 style="margin:0">Resumen</h1>
+                <div class="small" id="status">Cargando archivos de la carpeta...</div>
+            </div>
+
+            <div class="cards" id="overview">
+                <div class="card">
+                    <h3 style="margin:0 0 8px 0">Usuarios</h3>
+                    <div class="small">123 activos</div>
+                </div>
+                <div class="card">
+                    <h3 style="margin:0 0 8px 0">Proyectos</h3>
+                    <div class="small">8 en curso</div>
+                </div>
+                <div class="card">
+                    <h3 style="margin:0 0 8px 0">Tareas</h3>
+                    <div class="small">42 pendientes</div>
+                </div>
+            </div>
+
+            <section style="margin-top:18px">
+                <div class="card">
+                    <h3 style="margin:0 0 8px 0">Archivos en esta carpeta</h3>
+                    <div id="filesList" class="empty">Intentando detectar listados del servidor...</div>
+                    <div style="margin-top:12px" class="small">
+                        Si no aparecen archivos, crea un fichero menu.json en la misma carpeta con formato:
+                        <pre style="background:#f6f9ff;padding:8px;border-radius:6px;margin-top:6px">[
+    {"name":"index.html","href":"index.html"},
+    {"name":"clientes.html","href":"clientes.html"}
+]</pre>
+                    </div>
+                </div>
+            </section>
+
+            <section style="margin-top:18px">
+                <div class="card">
+                    <h3 style="margin:0 0 8px 0">Módulo: Registro de usuarios</h3>
+                    <p class="small">Aquí puedes crear un nuevo usuario sin salir del dashboard.</p>
+                    <!-- Embebe el módulo de registro (ruta /register) usando un iframe -->
+                    <div style="margin-top:12px">
+                        <iframe src="/register" style="width:100%;height:520px;border:0;border-radius:8px;box-shadow:0 6px 18px rgba(15,23,42,0.06)"></iframe>
+                    </div>
+                </div>
+            </section>
+
+            <section style="margin-top:18px">
+                <!-- Incluir el modulo de subida de facturas directamente -->
+                {% include 'upload_fragment.html' %}
+            </section>
+
+            <footer>
+                © App Gestión
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Archivo dashboard.html
+        // Comportamiento:
+        // 1) Intenta leer listado del servidor (fetch './' y parsear anchors) — útil si el servidor muestra un índice.
+        // 2) Si falla, intenta cargar menu.json (array de {name,href}).
+        // 3) Si todo falla, usa un array de ejemplo editable en la variable `fallbackFiles`.
+
+        const menuEl = document.getElementById('menu');
+        const filesListEl = document.getElementById('filesList');
+        const statusEl = document.getElementById('status');
+        const filterInput = document.getElementById('filter');
+
+        const fallbackFiles = [
+            {name: 'index.html', href: 'index.html'},
+            {name: 'clientes.html', href: 'clientes.html'},
+            {name: 'reportes.html', href: 'reportes.html'},
+            {name: 'upload_fragment.html', href: 'upload_fragment.html'},
+        ];
+
+        function renderMenu(items){
+            menuEl.innerHTML = '';
+            items.forEach((it, idx) => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = it.href || it.name;
+                a.textContent = it.name;
+                if (location.pathname.endsWith(it.href) || location.pathname.endsWith(it.name)) a.classList.add('active');
+                li.appendChild(a);
+                menuEl.appendChild(li);
+            });
+        }
+
+        function renderFiles(items){
+            if(!items || items.length===0){
+                filesListEl.textContent = 'No se encontraron archivos para mostrar.';
+                return;
+            }
+            const ul = document.createElement('ul');
+            ul.style.margin = 0;
+            ul.style.paddingLeft = '18px';
+            items.forEach(it => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = it.href || it.name;
+                a.textContent = it.name;
+                a.style.color = '#0b63b7';
+                a.style.textDecoration = 'none';
+                li.appendChild(a);
+                ul.appendChild(li);
+            });
+            filesListEl.innerHTML = '';
+            filesListEl.appendChild(ul);
+        }
+
+        // Intenta parsear listado del servidor (si existe un index auto generado)
+        async function tryParseDirectoryIndex(){
+            try {
+                const resp = await fetch('./');
+                if(!resp.ok) throw new Error('no index');
+                const text = await resp.text();
+                // Buscar enlaces <a href="...">... usando DOMParser
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const anchors = Array.from(doc.querySelectorAll('a'));
+                const files = anchors
+                    .map(a => ({name: a.textContent.trim() || a.getAttribute('href'), href: a.getAttribute('href')}))
+                    .filter(f => f.href && !f.href.startsWith('..') && f.href !== './');
+                // Quitar duplicados simples
+                const unique = [];
+                const seen = new Set();
+                files.forEach(f => {
+                    if(!seen.has(f.href)){
+                        seen.add(f.href);
+                        unique.push(f);
+                    }
+                });
+                if(unique.length) return unique;
+                return null;
+            } catch(e){
+                return null;
+            }
+        }
+
+        async function tryLoadMenuJson(){
+            try {
+                const r = await fetch('./menu.json');
+                if(!r.ok) throw new Error('no menu.json');
+                const data = await r.json();
+                if(Array.isArray(data)) return data;
+                return null;
+            } catch(e){
+                return null;
+            }
+        }
+
+        // Orquestador
+        (async function(){
+            statusEl.textContent = 'Buscando index o menu.json en la carpeta...';
+            const dirList = await tryParseDirectoryIndex();
+            if(dirList){
+                renderMenu(dirList);
+                renderFiles(dirList);
+                statusEl.textContent = `Se detectaron ${dirList.length} elementos en la carpeta.`;
+                return;
+            }
+            const menuJson = await tryLoadMenuJson();
+            if(menuJson){
+                renderMenu(menuJson);
+                renderFiles(menuJson);
+                statusEl.textContent = `Cargado menu.json (${menuJson.length} entradas).`;
+                return;
+            }
+            // Fallback: usar fallbackFiles (editables)
+            renderMenu(fallbackFiles);
+            renderFiles(fallbackFiles);
+            statusEl.textContent = 'Usando menú de ejemplo. Crea menu.json o activa el listado en tu servidor para autogenerar.';
+        })();
+
+        // Filtrado simple del menú
+        filterInput.addEventListener('input', () => {
+            const q = filterInput.value.toLowerCase().trim();
+            Array.from(menuEl.querySelectorAll('li')).forEach(li => {
+                const a = li.querySelector('a');
+                li.style.display = a.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

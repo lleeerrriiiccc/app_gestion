@@ -59,4 +59,41 @@ def check_username(username):
         return True
     else:
         return False
+    
 
+def create_user(username, password):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (user, pass) VALUES (%s, %s)", (username, password))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_users(username="*"):
+    if username == "*":
+        query = "SELECT * FROM users"
+        conn = connect()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(query)
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return results
+    else:
+        conn = connect()
+        cursor = conn.cursor(dictionary=True)
+        query = "SELECT * FROM users WHERE user = %s"
+        cursor.execute(query, (username,))
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    return results
+
+def check_params(param:list):
+    for p in param:
+        payloads = "./data/exclusions.json"
+        with open(payloads, 'r') as file:
+            exclusions = json.load(file)
+        if p in exclusions:
+            return False
+    return True
