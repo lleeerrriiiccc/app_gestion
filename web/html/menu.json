@@ -1,4 +1,4 @@
 [
-    {"name":"Create User","href":"/register"},
-    {"name":"Upload Invoice","href":"/upload"}
+    {"name":"User Management","href":"/users"},
+    {"name":"Invoice Management","href":"/invoice"}
 ]

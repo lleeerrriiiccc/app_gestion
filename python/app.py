@@ -6,10 +6,12 @@ from werkzeug.utils import secure_filename
 import mysql.connector
 import os
 from flask import send_from_directory
+from flask_cors import CORS
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
 app = Flask(__name__, template_folder=template_dir)
+CORS(app)
 
 # Simple secret for sessions (change in production)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-key-change-me')
@@ -72,7 +74,7 @@ def css(filename):
 
 
 # Autocomplete endpoint for client names
-@app.route('/data', methods=['GET'])
+@app.route('/api/data', methods=['GET'])
 @login_required
 def data():
     q = request.args.get('data', '')
@@ -88,19 +90,17 @@ def data():
         conn.close()
         # rows may be list of tuples
         names = [r[0] for r in rows]
+        print(names)
         return jsonify(names)
     except Exception as e:
         return jsonify([])
 
 
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html')
 
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
+
+@app.route('/api/invoice', methods=['GET', 'POST'])
+def invoice():
     # Allow public POST so users can self-register.
     # For GET, require login to view the register module inside the dashboard;
     # if not logged in, redirect to login page.
@@ -129,7 +129,7 @@ def register():
 
 
 # Upload endpoint for invoices
-@app.route('/upload', methods=["GET", 'POST'])
+@app.route('/api/upload', methods=["GET", 'POST'])
 @login_required
 def upload():
     if request.method == 'GET':
