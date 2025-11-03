@@ -1,9 +1,4 @@
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Login — App Gestión</title>
-    <link rel="stylesheet" href="/css/main.css">
-</head>
+<!-- upload_fragment.html - invoice upload module included in dashboard -->
 <div class="card card--narrow" id="upload-module">
     <div class="module-header" aria-hidden="false">
         <div class="badge">Módulo Facturas</div>
@@ -109,9 +104,7 @@
                 suggestionsDiv.innerHTML = '';
                 return;
             }
-            let domain = window.location.origin;
-            let port = 5000;
-            fetch(`${domain}:${port}/api/data?data=${encodeURIComponent(data)}`)
+            fetch(`/data?data=${encodeURIComponent(data)}`)
                 .then(r => r.json())
                 .then(arr => {
                     suggestionsDiv.innerHTML = '';
