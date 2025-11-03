@@ -129,9 +129,13 @@ def register():
 
 
 # Upload endpoint for invoices
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=["GET", 'POST'])
 @login_required
 def upload():
+    if request.method == 'GET':
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return render_template('upload_fragment.html')
     # ensure upload folder exists under repo/files/bills
     upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
     os.makedirs(upload_dir, exist_ok=True)
@@ -173,6 +177,13 @@ def upload():
         return ("File uploaded and data saved successfully!", 201)
     except Exception as e:
         return (f"Upload error: {e}", 500)
+    
+@app.route('/menu', methods=['GET'])
+def menu():
+    import json
+    with open(os.path.join(template_dir, 'menu.json'), 'r') as f:
+        menu_data = json.load(f)
+    return jsonify(menu_data)
 
 
 if __name__ == '__main__':

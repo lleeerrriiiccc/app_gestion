@@ -79,131 +79,89 @@
     </div>
 
     <script>
-        // Archivo dashboard.html
-        // Comportamiento:
-        // 1) Intenta leer listado del servidor (fetch './' y parsear anchors) — útil si el servidor muestra un índice.
-        // 2) Si falla, intenta cargar menu.json (array de {name,href}).
-        // 3) Si todo falla, usa un array de ejemplo editable en la variable `fallbackFiles`.
-
+    document.addEventListener('DOMContentLoaded', () => {
         const menuEl = document.getElementById('menu');
-        const filesListEl = document.getElementById('filesList');
-        const statusEl = document.getElementById('status');
         const filterInput = document.getElementById('filter');
+        const statusEl = document.getElementById('status');
 
-        const fallbackFiles = [
-            {name: 'index.html', href: 'index.html'},
-            {name: 'clientes.html', href: 'clientes.html'},
-            {name: 'reportes.html', href: 'reportes.html'},
-            {name: 'upload_fragment.html', href: 'upload_fragment.html'},
-        ];
+        let menuItems = [];
 
-        function renderMenu(items){
+        async function loadMenu() {
+            statusEl.textContent = 'Cargando menú...';
+            try {
+                const res = await fetch('/menu', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (!Array.isArray(data)) throw new Error('Formato de respuesta inválido');
+                menuItems = data.map(item => ({
+                    name: String(item.name || item.title || '').trim(),
+                    href: String(item.href || item.endpoint || '#').trim()
+                }));
+                renderMenu();
+                statusEl.textContent = `${menuItems.length} entradas de menú`;
+            } catch (err) {
+                console.error(err);
+                menuEl.innerHTML = '<li class="empty">No se pudo cargar el menú. Intenta recargar la página.</li>';
+                statusEl.textContent = 'Error cargando menú';
+            }
+        }
+
+        function renderMenu() {
             menuEl.innerHTML = '';
-            items.forEach((it, idx) => {
+            if (menuItems.length === 0) {
+                menuEl.innerHTML = '<li class="empty">No hay elementos de menú.</li>';
+                return;
+            }
+            const fragment = document.createDocumentFragment();
+            menuItems.forEach((it, idx) => {
                 const li = document.createElement('li');
                 const a = document.createElement('a');
-                a.href = it.href || it.name;
-                a.textContent = it.name;
-                if (location.pathname.endsWith(it.href) || location.pathname.endsWith(it.name)) a.classList.add('active');
+                a.href = it.href || '#';
+                a.textContent = it.name || it.href || `Elemento ${idx + 1}`;
+                a.setAttribute('data-index', idx);
+                a.className = 'menu-link';
                 li.appendChild(a);
-                menuEl.appendChild(li);
+                fragment.appendChild(li);
             });
+            menuEl.appendChild(fragment);
+            applyFilter();
         }
 
-        function renderFiles(items){
-            if(!items || items.length===0){
-                filesListEl.textContent = 'No se encontraron archivos para mostrar.';
-                return;
-            }
-            const ul = document.createElement('ul');
-            ul.style.margin = 0;
-            ul.style.paddingLeft = '18px';
-            items.forEach(it => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = it.href || it.name;
-                a.textContent = it.name;
-                a.style.color = '#0b63b7';
-                a.style.textDecoration = 'none';
-                li.appendChild(a);
-                ul.appendChild(li);
+        function applyFilter() {
+            const q = (filterInput.value || '').trim().toLowerCase();
+            const lis = Array.from(menuEl.querySelectorAll('li'));
+            let visible = 0;
+            lis.forEach(li => {
+                const txt = (li.textContent || '').toLowerCase();
+                const ok = q === '' || txt.indexOf(q) !== -1;
+                li.style.display = ok ? '' : 'none';
+                if (ok) visible++;
             });
-            filesListEl.innerHTML = '';
-            filesListEl.appendChild(ul);
+            statusEl.textContent = `${visible} / ${lis.length} entradas de menú`;
         }
 
-        // Intenta parsear listado del servidor (si existe un index auto generado)
-        async function tryParseDirectoryIndex(){
-            try {
-                const resp = await fetch('./');
-                if(!resp.ok) throw new Error('no index');
-                const text = await resp.text();
-                // Buscar enlaces <a href="...">... usando DOMParser
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
-                const anchors = Array.from(doc.querySelectorAll('a'));
-                const files = anchors
-                    .map(a => ({name: a.textContent.trim() || a.getAttribute('href'), href: a.getAttribute('href')}))
-                    .filter(f => f.href && !f.href.startsWith('..') && f.href !== './');
-                // Quitar duplicados simples
-                const unique = [];
-                const seen = new Set();
-                files.forEach(f => {
-                    if(!seen.has(f.href)){
-                        seen.add(f.href);
-                        unique.push(f);
-                    }
-                });
-                if(unique.length) return unique;
-                return null;
-            } catch(e){
-                return null;
-            }
+        // Debounce helper
+        function debounce(fn, ms = 200) {
+            let t;
+            return (...args) => {
+                clearTimeout(t);
+                t = setTimeout(() => fn(...args), ms);
+            };
         }
 
-        async function tryLoadMenuJson(){
-            try {
-                const r = await fetch('./menu.json');
-                if(!r.ok) throw new Error('no menu.json');
-                const data = await r.json();
-                if(Array.isArray(data)) return data;
-                return null;
-            } catch(e){
-                return null;
-            }
-        }
-
-        // Orquestador
-        (async function(){
-            statusEl.textContent = 'Buscando index o menu.json en la carpeta...';
-            const dirList = await tryParseDirectoryIndex();
-            if(dirList){
-                renderMenu(dirList);
-                renderFiles(dirList);
-                statusEl.textContent = `Se detectaron ${dirList.length} elementos en la carpeta.`;
-                return;
-            }
-            const menuJson = await tryLoadMenuJson();
-            if(menuJson){
-                renderMenu(menuJson);
-                renderFiles(menuJson);
-                statusEl.textContent = `Cargado menu.json (${menuJson.length} entradas).`;
-                return;
-            }
-            // Fallback: usar fallbackFiles (editables)
-            renderMenu(fallbackFiles);
-            renderFiles(fallbackFiles);
-            statusEl.textContent = 'Usando menú de ejemplo. Crea menu.json o activa el listado en tu servidor para autogenerar.';
-        })();
-
-        // Filtrado simple del menú
-        filterInput.addEventListener('input', () => {
-            const q = filterInput.value.toLowerCase().trim();
-            Array.from(menuEl.querySelectorAll('li')).forEach(li => {
-                const a = li.querySelector('a');
-                li.style.display = a.textContent.toLowerCase().includes(q) ? '' : 'none';
-            });
+        // Highlight clicked link
+        menuEl.addEventListener('click', (e) => {
+            const a = e.target.closest('a');
+            if (!a) return;
+            menuEl.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+            a.classList.add('active');
         });
+
+        filterInput.addEventListener('input', debounce(applyFilter, 120));
+
+        // Inicializar
+        loadMenu();
+    });
     </script>
 </body>
 </html>

@@ -1,0 +1,4 @@
+[
+    {"name":"Create User","href":"/register"},
+    {"name":"Upload Invoice","href":"/upload"}
+]
