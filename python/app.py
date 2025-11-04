@@ -6,10 +6,13 @@ from werkzeug.utils import secure_filename
 import mysql.connector
 import os
 from flask import send_from_directory
+from flask_cors import CORS
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
 app = Flask(__name__, template_folder=template_dir)
+
+CORS(app)
 
 # Simple secret for sessions (change in production)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-key-change-me')
@@ -41,6 +44,7 @@ def login():
     stored_hash = res[0]['pass']
     if check_password(password, stored_hash):
         session['user'] = user
+        session['privilege'] = res[0].get('privilege', 0)
         return redirect(url_for('dashboard'))
     else:
         abort(401)
@@ -70,14 +74,80 @@ def css(filename):
     css_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'css'))
     return send_from_directory(css_dir, filename)
 
+@app.route('/img/<path:filename>')
+def img(filename):
+    img_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'resources'))
+    return send_from_directory(img_dir, filename)
 
 # Autocomplete endpoint for client names
 @app.route('/data', methods=['GET'])
 @login_required
 def data():
     q = request.args.get('data', '')
-    if not q:
+    if check_params([q]) is False:
         return jsonify([])
+    clients = check_clients(q)
+    if not clients:
+        return jsonify([])
+    return jsonify(clients)
+
+# API: return users list for management UI
+@app.route('/api/users', methods=['GET'])
+@login_required
+def api_users():
+    try:
+        results = get_users('*')
+        # normalize list of dicts -> return only username and optional fields
+        out = []
+        for r in results:
+            if isinstance(r, dict):
+                out.append({'user': r.get('user') or r.get('name')})
+            else:
+                out.append({'user': r})
+        return jsonify(out)
+    except Exception:
+        return jsonify([])
+
+
+# Users edit (change password)
+@app.route('/users/edit', methods=['GET', 'POST'])
+@login_required
+def users_edit():
+    if request.method == 'GET':
+        return render_template('users_edit.html')
+
+    # POST -> update password
+    username = request.form.get('username')
+    password = request.form.get('password')
+    if not username or not password:
+        return ("Missing parameters", 400)
+    if len(password) < 8:
+        return ("Password too short", 400)
+    try:
+        hashed = encrypt_password(password)
+        if isinstance(hashed, bytes):
+            hashed = hashed.decode('utf-8')
+        update_data("UPDATE users SET pass=%s WHERE user=%s", (hashed, username))
+        return ("User updated", 200)
+    except Exception as e:
+        return (f"Error updating user: {e}", 500)
+
+
+# Users delete
+@app.route('/users/delete', methods=['GET', 'POST'])
+@login_required
+def users_delete():
+    if request.method == 'GET':
+        return render_template('users_delete.html')
+
+    username = request.form.get('username')
+    if not username:
+        return ("Missing username", 400)
+    try:
+        delete_data("DELETE FROM users WHERE user = %s", (username,))
+        return ("User deleted", 200)
+    except Exception as e:
+        return (f"Error deleting user: {e}", 500)
 
     try:
         conn = connect()
@@ -99,8 +169,8 @@ def dashboard():
     return render_template('dashboard.html')
 
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
+@app.route('/users/add', methods=['GET', 'POST'])
+def users():
     # Allow public POST so users can self-register.
     # For GET, require login to view the register module inside the dashboard;
     # if not logged in, redirect to login page.
@@ -112,7 +182,7 @@ def register():
     # POST -> create user (public)
     user = request.form.get('username')
     password = request.form.get('password')
-
+    privilege = request.form.get('privilege', 0)
     if not check_params([user, password]):
         abort(400)
 
@@ -124,14 +194,14 @@ def register():
     if isinstance(hashed_password, bytes):
         hashed_password = hashed_password.decode('utf-8')
 
-    create_user(user, hashed_password)
+    create_user(user, hashed_password, privilege)
     return ("User registered successfully", 201)
 
 
 # Upload endpoint for invoices
-@app.route('/upload', methods=["GET", 'POST'])
+@app.route('/invoices/add', methods=["GET", 'POST'])
 @login_required
-def upload():
+def invoice():
     if request.method == 'GET':
         if 'user' not in session:
             return redirect(url_for('login'))
@@ -158,14 +228,7 @@ def upload():
 
         # Insert into DB using database.connect() if available, else fallback
         try:
-            conn = connect()
-            cur = conn.cursor()
-            # factura_pendiente: interpret checkbox as 0 when 'on', else 1 to keep parity with original app
-            factura_pendiente = 0 if checkbox == 'on' else 1
-            cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email) VALUES (%s, %s, %s, %s)", (client, file_path, factura_pendiente, email))
-            conn.commit()
-            cur.close()
-            conn.close()
+            upload_invoice(client, file_path, email, checkbox)
         except Exception as db_err:
             # remove file if DB insert failed
             try:
@@ -185,6 +248,13 @@ def menu():
         menu_data = json.load(f)
     return jsonify(menu_data)
 
+@app.route('/api/me', methods=['GET'])
+@login_required
+def api_me():
+    return jsonify({
+        'user': session.get('user'),
+        'privilege': session.get('privilege', 0)
+    })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=80)

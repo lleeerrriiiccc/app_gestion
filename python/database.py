@@ -61,10 +61,10 @@ def check_username(username):
         return False
     
 
-def create_user(username, password):
+def create_user(username, password, privilege=0):
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (user, pass) VALUES (%s, %s)", (username, password))
+    cursor.execute("INSERT INTO users (user, pass, privilege) VALUES (%s, %s, %s)", (username, password, privilege))
     conn.commit()
     cursor.close()
     conn.close()
@@ -97,3 +97,50 @@ def check_params(param:list):
         if p in exclusions:
             return False
     return True
+
+def privileges(username):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT privilege FROM users WHERE user = %s", (username,))
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if result:
+        return result[0]
+    else:
+        return None
+    
+def check_privilege(requiered_privilege, user):
+    user_privilege = privileges(user)
+    if user_privilege is None:
+        return False
+    if user_privilege >= requiered_privilege:
+        return True
+    else:
+        return False
+
+def upload_invoice(client, file_path, email, checkbox):
+    conn = connect()
+    cur = conn.cursor()
+    # factura_pendiente: interpret checkbox as 0 when 'on', else 1 to keep parity with original app
+    factura_pendiente = 0 if checkbox == 'on' else 1
+    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email) VALUES (%s, %s, %s, %s)", (client, file_path, factura_pendiente, email))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def check_clients(client):
+    conn = connect()
+    cursor = conn.cursor()
+    client = client + '%'
+    cursor.execute("SELECT name FROM clientes WHERE NAME LIKE %s;", (client,))
+    print("SELECT name FROM clientes WHERE NAME LIKE %s;", (client,))
+    rows = cursor.fetchall()
+    print(rows)
+    cursor.close()
+    conn.close()
+    if rows:
+        return rows
+    else:
+        return False
+

@@ -27,6 +27,14 @@
                 <input id="password" name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="Al menos 8 caracteres">
             </div>
 
+            <div>
+                <label for="privilege">Privilegio</label>
+                <select id="privilege" name="privilege">
+                    <option value="0">Usuario</option>
+                    <option value="1">Administrador</option>
+                </select>
+            </div>
+
             <div class="actions">
                 <button type="submit" class="primary">Crear usuario</button>
                 <button type="button" class="ghost" onclick="location.href='/dashboard'" aria-label="Cancelar y volver al dashboard">Cancelar</button>
@@ -52,6 +60,7 @@
                 show('', '');
                 const user = form.username.value.trim();
                 const pwd = form.password.value;
+                const privilege = form.privilege.value;
 
                 if (!user) {
                     show('El usuario es obligatorio.', 'error');
@@ -65,7 +74,8 @@
                     return;
                 }
 
-                const url = 'http://127.0.0.1:5000/register';
+
+                const url = 'http://127.0.0.1/users/add';
                 const body = new URLSearchParams(new FormData(form)).toString();
 
                 submitBtn.disabled = true;

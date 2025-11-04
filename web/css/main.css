@@ -63,3 +63,18 @@ input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 6px 18px rgba
 .suggestion-content .suggestion + .suggestion{margin-top:6px}
 .suggestion-content .suggestion:hover{background:#f1f7ff}
 
+/* Header for dashboard */
+.app-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.app-header .brand-left{display:flex;align-items:center;gap:12px}
+.app-header .logo{width:44px;height:44px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#000000);color:#fff;font-weight:700}
+.app-header .enterprise-name{font-weight:700;font-size:18px}
+.app-header .logout-btn{background:transparent;border:1px solid rgba(15,23,36,0.06);padding:8px 12px;border-radius:8px;color:var(--muted);text-decoration:none}
+.app-header .logout-btn:hover{color:#111827;border-color:rgba(15,23,36,0.12)}
+
+/* Menu submenu styles */
+.menu .has-submenu > .submenu-toggle{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:6px;color:#fff;text-decoration:none;cursor:pointer}
+.menu .submenu{margin:8px 0 0 8px;padding:8px;border-left:2px solid rgba(255,255,255,0.04);display:none}
+.menu .submenu a{display:block;padding:6px 10px;border-radius:6px;color:#fff;opacity:0.95;text-decoration:none;font-size:14px}
+.menu .submenu a:hover{background:rgba(255,255,255,0.04)}
+.menu .has-submenu.open .submenu{display:block}
+

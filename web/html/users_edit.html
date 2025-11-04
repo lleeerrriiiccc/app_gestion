@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Editar usuario</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        main{padding:24px}
+    </style>
+</head>
+<body>
+    <main class="card card--narrow">
+        <div class="module-header">
+            <div class="badge">Usuarios</div>
+            <div class="small">Editar usuario</div>
+        </div>
+
+        <div>
+            <label for="userSelect">Selecciona usuario</label>
+            <select id="userSelect"></select>
+        </div>
+
+        <div>
+            <label for="newPassword">Nueva contraseña</label>
+            <input id="newPassword" type="password" placeholder="Nueva contraseña (mín 8)" minlength="8">
+        </div>
+
+        <div class="actions">
+            <button id="saveBtn" class="primary">Guardar cambios</button>
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+        </div>
+
+        <div id="message" role="status" aria-live="polite" style="margin-top:10px"></div>
+    </main>
+
+    <script>
+        async function loadUsers(){
+            const sel = document.getElementById('userSelect');
+            sel.innerHTML = '';
+            try{
+                const res = await fetch('/api/users');
+                if(!res.ok) throw new Error('Error fetching users');
+                const users = await res.json();
+                users.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.user || u.name || u.username || u;
+                    opt.textContent = opt.value;
+                    sel.appendChild(opt);
+                });
+            }catch(e){
+                document.getElementById('message').textContent = 'No se pudieron cargar usuarios.';
+            }
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', async ()=>{
+            const sel = document.getElementById('userSelect');
+            const user = sel.value;
+            const pwd = document.getElementById('newPassword').value;
+            const msg = document.getElementById('message');
+            msg.textContent = '';
+            if(!user){ msg.textContent='Selecciona un usuario'; return; }
+            if(!pwd || pwd.length<8){ msg.textContent='La contraseña debe tener al menos 8 caracteres'; return; }
+
+            try{
+                const res = await fetch('/users/edit', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({username: user, password: pwd}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){ msg.className='success'; msg.textContent = text || 'Contraseña actualizada'; }
+                else { msg.className='error'; msg.textContent = text || 'Error al actualizar'; }
+            }catch(err){ msg.className='error'; msg.textContent = 'No se pudo conectar'; }
+        });
+        loadUsers();
+        document.getElementById('cancelBtn').addEventListener('click', ()=>{
+            document.getElementById('newPassword').value = '';
+            document.getElementById('message').textContent = '';
+        });
+
+        
+    </script>
+</body>
+</html>

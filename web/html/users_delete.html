@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Eliminar usuario</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--narrow">
+        <div class="module-header">
+            <div class="badge">Usuarios</div>
+            <div class="small">Eliminar usuario</div>
+        </div>
+
+        <div id="list"></div>
+
+        <div id="message" role="status" aria-live="polite" style="margin-top:10px">
+            
+        </div>
+        <div>
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+        </div>
+
+    </main>
+
+    <script>
+        async function load(){
+            const list = document.getElementById('list');
+            list.innerHTML = '';
+            try{
+                const res = await fetch('/api/users');
+                if(!res.ok) throw new Error('error');
+                const users = await res.json();
+                users.forEach(u=>{
+                    const row = document.createElement('div');
+                    row.style.display='flex';row.style.gap='8px';row.style.alignItems='center';row.style.marginTop='8px';
+                    const span = document.createElement('div'); span.textContent = u.user || u.name || u; span.style.flex='1';
+                    const btn = document.createElement('button'); btn.className='ghost'; btn.textContent='Eliminar';
+                    btn.addEventListener('click', ()=> confirmDelete(u.user || u.name || u));
+                    row.appendChild(span); row.appendChild(btn); list.appendChild(row);
+                });
+            }catch(e){ document.getElementById('message').textContent='No se pudieron cargar usuarios.' }
+        }
+
+        async function confirmDelete(username){
+            if(!confirm(`¿Eliminar usuario ${username}? Esta acción no se puede deshacer.`)) return;
+            const msg = document.getElementById('message'); msg.textContent='';
+            try{
+                const res = await fetch('/users/delete', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({username}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){ msg.className='success'; msg.textContent = text || 'Usuario eliminado'; load(); }
+                else { msg.className='error'; msg.textContent = text || 'Error al eliminar'; }
+            }catch(err){ msg.className='error'; msg.textContent='No se pudo conectar'; }
+        }
+
+        load();
+    </script>
+</body>
+</html>

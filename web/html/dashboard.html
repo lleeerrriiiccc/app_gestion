@@ -22,146 +22,130 @@
         </aside>
 
         <main>
-            <div class="top">
-                <h1 style="margin:0">Resumen</h1>
-                <div class="small" id="status">Cargando archivos de la carpeta...</div>
-            </div>
-
-            <div class="cards" id="overview">
-                <div class="card">
-                    <h3 style="margin:0 0 8px 0">Usuarios</h3>
-                    <div class="small">123 activos</div>
-                </div>
-                <div class="card">
-                    <h3 style="margin:0 0 8px 0">Proyectos</h3>
-                    <div class="small">8 en curso</div>
-                </div>
-                <div class="card">
-                    <h3 style="margin:0 0 8px 0">Tareas</h3>
-                    <div class="small">42 pendientes</div>
-                </div>
-            </div>
-
-            <section style="margin-top:18px">
-                <div class="card">
-                    <h3 style="margin:0 0 8px 0">Archivos en esta carpeta</h3>
-                    <div id="filesList" class="empty">Intentando detectar listados del servidor...</div>
-                    <div style="margin-top:12px" class="small">
-                        Si no aparecen archivos, crea un fichero menu.json en la misma carpeta con formato:
-                        <pre style="background:#f6f9ff;padding:8px;border-radius:6px;margin-top:6px">[
-    {"name":"index.html","href":"index.html"},
-    {"name":"clientes.html","href":"clientes.html"}
-]</pre>
+            <header class="app-header">
+                <div class="brand-left">
+                    <div class="logo" aria-hidden="true">
+                        <img src="/img/logo.png" alt="Logo" style="width:24px;height:24px">
                     </div>
+                    <div class="enterprise-name">SUIMCO</div>
                 </div>
-            </section>
-
-            <section style="margin-top:18px">
-                <div class="card">
-                    <h3 style="margin:0 0 8px 0">Módulo: Registro de usuarios</h3>
-                    <p class="small">Aquí puedes crear un nuevo usuario sin salir del dashboard.</p>
-                    <!-- Embebe el módulo de registro (ruta /register) usando un iframe -->
-                    <div style="margin-top:12px">
-                        <iframe src="/register" style="width:100%;height:520px;border:0;border-radius:8px;box-shadow:0 6px 18px rgba(15,23,42,0.06)"></iframe>
-                    </div>
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div class="small" id="status">Estado</div>
+                    <a href="/logout" class="logout-btn">Cerrar sesión</a>
                 </div>
-            </section>
-
-            <section style="margin-top:18px">
-                <!-- Incluir el modulo de subida de facturas directamente -->
-                {% include 'upload_fragment.html' %}
-            </section>
-
-            <footer>
-                © App Gestión
-            </footer>
+            </header>
         </main>
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    (function(){
         const menuEl = document.getElementById('menu');
         const filterInput = document.getElementById('filter');
         const statusEl = document.getElementById('status');
 
-        let menuItems = [];
+        let menuData = [];
 
-        async function loadMenu() {
+        async function loadMenu(){
             statusEl.textContent = 'Cargando menú...';
-            try {
-                const res = await fetch('/menu', { cache: 'no-store' });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            try{
+                const res = await fetch('/menu', {cache:'no-store'});
+                if(!res.ok) throw new Error('No menu.json');
                 const data = await res.json();
-                if (!Array.isArray(data)) throw new Error('Formato de respuesta inválido');
-                menuItems = data.map(item => ({
-                    name: String(item.name || item.title || '').trim(),
-                    href: String(item.href || item.endpoint || '#').trim()
-                }));
+
+                // Normalize into array of groups {group, items: [{name, href}] }
+                if(Array.isArray(data)){
+                    menuData = [{ group: 'Menu', items: data.map(it => ({ name: it.name, href: it.href })) }];
+                } else if(data && typeof data === 'object'){
+                    menuData = Object.entries(data).map(([k,v]) => ({ group: k, items: Array.isArray(v) ? v.map(it=>({name: it.name, href: it.href})) : [] }));
+                } else {
+                    menuData = [];
+                }
+
                 renderMenu();
-                statusEl.textContent = `${menuItems.length} entradas de menú`;
-            } catch (err) {
+                const total = menuData.reduce((s,g)=>s+(g.items?g.items.length:0),0);
+                statusEl.textContent = `${total} entradas de menú`;
+            }catch(err){
                 console.error(err);
-                menuEl.innerHTML = '<li class="empty">No se pudo cargar el menú. Intenta recargar la página.</li>';
+                menuEl.innerHTML = '<li class="empty">No se pudo cargar el menú.</li>';
                 statusEl.textContent = 'Error cargando menú';
             }
         }
 
-        function renderMenu() {
+        function renderMenu(){
             menuEl.innerHTML = '';
-            if (menuItems.length === 0) {
+            if(!menuData || menuData.length===0){
                 menuEl.innerHTML = '<li class="empty">No hay elementos de menú.</li>';
                 return;
             }
-            const fragment = document.createDocumentFragment();
-            menuItems.forEach((it, idx) => {
+
+            const frag = document.createDocumentFragment();
+            menuData.forEach(group => {
                 const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = it.href || '#';
-                a.textContent = it.name || it.href || `Elemento ${idx + 1}`;
-                a.setAttribute('data-index', idx);
-                a.className = 'menu-link';
-                li.appendChild(a);
-                fragment.appendChild(li);
+                li.className = 'has-submenu';
+
+                const toggle = document.createElement('div');
+                toggle.className = 'submenu-toggle';
+                toggle.textContent = group.group;
+                const chevr = document.createElement('span'); chevr.textContent = '\u25BC';
+                toggle.appendChild(chevr);
+                li.appendChild(toggle);
+
+                const submenu = document.createElement('div');
+                submenu.className = 'submenu';
+                (group.items||[]).forEach(it => {
+                    const a = document.createElement('a');
+                    a.href = it.href || '#';
+                    a.textContent = it.name || it.href || '-';
+                    submenu.appendChild(a);
+                });
+                li.appendChild(submenu);
+                frag.appendChild(li);
             });
-            menuEl.appendChild(fragment);
+
+            menuEl.appendChild(frag);
+
+            // attach toggles
+            document.querySelectorAll('.menu .has-submenu .submenu-toggle').forEach(el=>{
+                el.addEventListener('click', ()=> el.parentElement.classList.toggle('open'));
+            });
+
+            // highlight on link click
+            menuEl.addEventListener('click', (e)=>{
+                const a = e.target.closest('a');
+                if(!a) return;
+                menuEl.querySelectorAll('a').forEach(x=>x.classList.remove('active'));
+                a.classList.add('active');
+            });
+
             applyFilter();
         }
 
-        function applyFilter() {
-            const q = (filterInput.value || '').trim().toLowerCase();
-            const lis = Array.from(menuEl.querySelectorAll('li'));
+        function applyFilter(){
+            const q = (filterInput.value||'').trim().toLowerCase();
+            const lis = Array.from(menuEl.querySelectorAll(':scope > li'));
             let visible = 0;
-            lis.forEach(li => {
-                const txt = (li.textContent || '').toLowerCase();
-                const ok = q === '' || txt.indexOf(q) !== -1;
+            lis.forEach(li=>{
+                const title = (li.querySelector('.submenu-toggle')?.textContent || '').toLowerCase();
+                const links = Array.from(li.querySelectorAll('.submenu a'));
+                const childMatch = links.some(a=> (a.textContent||'').toLowerCase().includes(q));
+                const groupMatch = title.includes(q);
+                const ok = q === '' || childMatch || groupMatch;
                 li.style.display = ok ? '' : 'none';
-                if (ok) visible++;
+                if(ok) visible++;
             });
-            statusEl.textContent = `${visible} / ${lis.length} entradas de menú`;
+            const totalLinks = menuEl.querySelectorAll('.submenu a').length;
+            statusEl.textContent = `${visible} grupos — ${totalLinks} enlaces`;
         }
 
-        // Debounce helper
-        function debounce(fn, ms = 200) {
-            let t;
-            return (...args) => {
-                clearTimeout(t);
-                t = setTimeout(() => fn(...args), ms);
-            };
-        }
-
-        // Highlight clicked link
-        menuEl.addEventListener('click', (e) => {
-            const a = e.target.closest('a');
-            if (!a) return;
-            menuEl.querySelectorAll('a').forEach(x => x.classList.remove('active'));
-            a.classList.add('active');
-        });
+        // debounce
+        function debounce(fn, ms=150){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); } }
 
         filterInput.addEventListener('input', debounce(applyFilter, 120));
 
-        // Inicializar
+        // init
         loadMenu();
-    });
+    })();
     </script>
+
 </body>
 </html>

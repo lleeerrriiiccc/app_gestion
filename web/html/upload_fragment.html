@@ -1,4 +1,10 @@
 <!-- upload_fragment.html - invoice upload module included in dashboard -->
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Invoice - App Gestión</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
 <div class="card card--narrow" id="upload-module">
     <div class="module-header" aria-hidden="false">
         <div class="badge">Módulo Facturas</div>
@@ -31,7 +37,7 @@
 
         <div class="actions" style="margin-top:10px">
             <button type="submit" class="primary">Subir y guardar</button>
-            <button type="button" class="ghost" onclick="document.getElementById('uploadForm').reset()">Limpiar</button>
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
         </div>
 
         <div id="uploadMessage" role="status" aria-live="polite" style="margin-top:10px"></div>
@@ -71,7 +77,7 @@
             show('Subiendo…', 'small');
 
             try {
-                const res = await fetch('/upload', {
+                const res = await fetch('/invoices/add', {
                     method: 'POST',
                     body: fd
                 });
