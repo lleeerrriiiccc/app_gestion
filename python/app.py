@@ -149,6 +149,65 @@ def users_delete():
     except Exception as e:
         return (f"Error deleting user: {e}", 500)
 
+
+# API: invoices listing
+@app.route('/api/invoices', methods=['GET'])
+@login_required
+def api_invoices():
+    client = request.args.get('client', '').strip()
+    paid = request.args.get('paid', 'all')
+    try:
+        conn = connect()
+        cur = conn.cursor(dictionary=True)
+        base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente"
+        params = []
+        where = []
+        if client:
+            where.append("clientes.name LIKE %s")
+            params.append(client + '%')
+        if paid == 'pending':
+            where.append("factura_pendiente = %s")
+            params.append(1)
+        elif paid == 'paid':
+            where.append("factura_pendiente = %s")
+            params.append(0)
+        if where:
+            base = base + ' WHERE ' + ' AND '.join(where) + ';'
+            print('Final query:', base, params)
+        cur.execute(base, params)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(rows)
+    except Exception as e:
+        print('api_invoices error:', e)
+        return jsonify([])
+
+
+# Invoices edit page & update
+@app.route('/invoices/edit', methods=['GET', 'POST'])
+@login_required
+def invoices_edit():
+    if request.method == 'GET':
+        return render_template('invoices_edit.html')
+    # POST -> update invoice
+    id_ = request.form.get('id')
+    cliente = request.form.get('cliente')
+    email = request.form.get('email')
+    factura_pendiente = request.form.get('factura_pendiente')
+    if not id_:
+        return ("Missing id", 400)
+    try:
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("UPDATE facturas SET cliente = (SELECT idcliente from clientes WHERE name = %s), email=%s, factura_pendiente=%s WHERE idfactura=%s", (cliente, email, factura_pendiente, id_))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return ("Invoice updated", 200)
+    except Exception as e:
+        return (f"Error updating invoice: {e}", 500)
+
     try:
         conn = connect()
         cur = conn.cursor()
@@ -261,6 +320,16 @@ def api_me():
         'user': session.get('user'),
         'privilege': session.get('privilege', 0)
     })
+
+@app.route('/invoices/view', methods=['GET'])
+@login_required
+def invoices_view():
+    return render_template('invoices_view.html')
+
+@app.route('/pdf/<path:filename>')
+def serve_pdf(filename):
+    # Envía el PDF desde la carpeta files/bills/
+    return send_from_directory('files/bills', filename)
 
 if __name__ == '__main__':
     app.run(debug=True, port=80)

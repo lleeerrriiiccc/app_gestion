@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Facturas — Listado y edición</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        main{padding:20px}
+        table{width:100%;border-collapse:collapse}
+        th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+        tr:hover{background:#fbfdff}
+        .muted{color:var(--muted)}
+        .form-inline{display:flex;gap:8px;align-items:center}
+        .form-inline input, .form-inline select{width:auto}
+    </style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Facturas</div>
+            <div class="small">Listado y edición</div>
+        </div>
+
+        <section>
+            <div class="form-inline">
+                <label class="muted">Cliente</label>
+                <input id="filterClient" type="text" placeholder="Nombre cliente" />
+
+                <label class="muted">Estado</label>
+                <select id="filterPaid">
+                    <option value="all">Todos</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="paid">Pagada</option>
+                </select>
+
+                <button id="btnFilter" class="primary">Filtrar</button>
+                <button id="btnReload" class="ghost">Recargar</button>
+            </div>
+        </section>
+
+        <section style="margin-top:12px">
+            <div class="table-responsive">
+            <table id="invoicesTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Archivo</th>
+                        <th>Estado</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            </div>
+        </section>
+
+        <section id="editSection" style="margin-top:16px;display:none">
+            <h3>Editar factura <span id="editId"></span></h3>
+            <div>
+                <label for="editClient">Cliente</label>
+                <input id="editClient" type="text">
+            </div>
+            <div>
+                <label for="editEmail">Email</label>
+                <input id="editEmail" type="email">
+            </div>
+            <div>
+                <label for="editPaid">Estado</label>
+                <select id="editPaid">
+                    <option value="paid">Pagada</option>
+                    <option value="pending">Pendiente</option>
+                </select>
+            </div>
+            <div class="actions" style="margin-top:8px">
+                <button id="saveInvoice" class="primary">Guardar</button>
+                <button id="cancelEdit" class="ghost">Cancelar</button>
+            </div>
+            <div id="editMessage" role="status" aria-live="polite" style="margin-top:8px"></div>
+        </section>
+    </main>
+
+    <script>
+        const tableBody = document.querySelector('#invoicesTable tbody');
+        const filterClient = document.getElementById('filterClient');
+        const filterPaid = document.getElementById('filterPaid');
+        const btnFilter = document.getElementById('btnFilter');
+        const btnReload = document.getElementById('btnReload');
+
+        const editSection = document.getElementById('editSection');
+        const editId = document.getElementById('editId');
+        const editClient = document.getElementById('editClient');
+        const editEmail = document.getElementById('editEmail');
+        const editPaid = document.getElementById('editPaid');
+        const saveInvoice = document.getElementById('saveInvoice');
+        const cancelEdit = document.getElementById('cancelEdit');
+        const editMessage = document.getElementById('editMessage');
+
+        function statusLabel(val){
+            // acuerdo: en la BD 0 -> pendiente, 1 -> pagada (según uploader)
+            return (val === 0 || val === '0') ? 'Pendiente' : 'Pagada';
+        }
+
+        async function loadInvoices(){
+            const client = filterClient.value.trim();
+            const paid = filterPaid.value;
+            const params = new URLSearchParams();
+            if(client) params.set('client', client);
+            if(paid) params.set('paid', paid);
+            const res = await fetch('/api/invoices?' + params.toString());
+            if(!res.ok){ tableBody.innerHTML = '<tr><td colspan="6">Error cargando facturas</td></tr>'; return; }
+            const rows = await res.json();
+            renderTable(rows);
+        }
+
+        function renderTable(rows){
+            tableBody.innerHTML = '';
+            if(!rows || rows.length===0){ tableBody.innerHTML = '<tr><td colspan="6">No hay facturas</td></tr>'; return; }
+            rows.forEach(r=>{
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${r.idfactura}</td>
+                    <td>${escapeHtml(r.cliente||r.cliente_name||'')}</td>
+                    <td>${r.ubicacion_factura ? `<a href="${escapeHtml(r.ubicacion_factura)}" target="_blank">ver</a>` : ''}</td>
+                    <td>${statusLabel(r.factura_pendiente)}</td>
+                    <td>${escapeHtml(r.email||'')}</td>
+                    <td><button class="ghost" data-id="${r.idfactura}" data-cliente="${escapeAttr(r.cliente)}" data-email="${escapeAttr(r.email)}" data-pendiente="${r.factura_pendiente}">Editar</button></td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            // attach edit buttons
+            tableBody.querySelectorAll('button[data-id]').forEach(btn=> btn.addEventListener('click', ()=>{
+                const id = btn.getAttribute('data-id');
+                const cliente = btn.getAttribute('data-cliente');
+                const email = btn.getAttribute('data-email');
+                const pendiente = btn.getAttribute('data-pendiente');
+                openEdit({id, cliente, email, pendiente});
+            }));
+        }
+
+        function escapeHtml(s){
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttr(s){
+            if (s === null || s === undefined) return '';
+            return String(s).replace(/"/g, '&quot;');
+        }
+
+        function openEdit(row){
+            editSection.style.display = '';
+            editId.textContent = row.id;
+            editClient.value = row.cliente || '';
+            editEmail.value = row.email || '';
+            editPaid.value = (row.pendiente == '0' || row.pendiente == 0) ? 'pending' : 'paid';
+            editMessage.textContent = '';
+            saveInvoice.dataset.id = row.id;
+        }
+
+        saveInvoice.addEventListener('click', async ()=>{
+            const id = saveInvoice.dataset.id;
+            const cliente = editClient.value.trim();
+            const email = editEmail.value.trim();
+            const paid = editPaid.value;
+            const factura_pendiente = (paid === 'pending') ? 0 : 1;
+            editMessage.textContent = '';
+            try{
+                const res = await fetch('/invoices/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({id, cliente, email, factura_pendiente}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){ editMessage.className='success'; editMessage.textContent = text || 'Actualizado'; loadInvoices(); }
+                else { editMessage.className='error'; editMessage.textContent = text || 'Error'; }
+            }catch(err){ editMessage.className='error'; editMessage.textContent='No se pudo conectar'; }
+        });
+
+        cancelEdit.addEventListener('click', ()=>{ editSection.style.display='none'; });
+
+        btnFilter.addEventListener('click', loadInvoices);
+        btnReload.addEventListener('click', ()=>{ filterClient.value=''; filterPaid.value='all'; loadInvoices(); });
+
+        // initial load
+        loadInvoices();
+    </script>
+</body>
+</html>

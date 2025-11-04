@@ -123,8 +123,8 @@ def upload_invoice(client, file_path, email, checkbox):
     conn = connect()
     cur = conn.cursor()
     # factura_pendiente: interpret checkbox as 0 when 'on', else 1 to keep parity with original app
-    factura_pendiente = 0 if checkbox == 'on' else 1
-    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email) VALUES (%s, %s, %s, %s)", (client, file_path, factura_pendiente, email))
+    factura_pendiente = 1 if checkbox == 'on' else 0
+    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email) VALUES ((SELECT idcliente FROM clientes WHERE NAME = %s), %s, %s, %s)", (client, file_path, factura_pendiente, email))
     conn.commit()
     cur.close()
     conn.close()

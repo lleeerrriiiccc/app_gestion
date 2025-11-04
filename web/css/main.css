@@ -55,6 +55,12 @@ input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 6px 18px rgba
 .centered-page{display:flex;align-items:center;justify-content:center;padding:24px;min-height:100vh}
 .card--narrow{width:100%;max-width:520px}
 
+/* Wider card variant for tables/edit pages that need more horizontal space */
+.card--wide{width:100%;max-width:1100px}
+
+/* Responsive table wrapper: allows horizontal scroll when table is wider than container */
+.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
 .module-note pre{background:#f6f9ff;padding:8px;border-radius:6px;margin-top:6px}
 
 /* Suggestions dropdown used by autocomplete in upload/register forms */
