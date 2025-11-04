@@ -1,12 +1,21 @@
 {
-    "Gestion de usuarios": [
-        {"name": "Añadir usuario", "href": "/users/add"},
-        {"name": "Editar usuario", "href": "/users/edit"},
-        {"name": "Eliminar usuario", "href": "/users/delete"}
-    ],
-    "Gestion de facturas": [
+    "user":{
+        "Gestion de facturas": [
         {"name": "Añadir factura", "href": "/invoices/add"},
         {"name": "Editar factura", "href": "/invoices/edit"},
         {"name": "Eliminar factura", "href": "/invoices/delete"}
-    ]
+        ]
+    },
+    "admin":{
+        "Gestion de facturas": [
+        {"name": "Añadir factura", "href": "/invoices/add"},
+        {"name": "Editar factura", "href": "/invoices/edit"},
+        {"name": "Eliminar factura", "href": "/invoices/delete"}
+        ],
+        "Gestion de usuarios": [
+        {"name": "Añadir usuario", "href": "/users/add"},
+        {"name": "Editar usuario", "href": "/users/edit"},
+        {"name": "Eliminar usuario", "href": "/users/delete"}
+        ]
+    }
 }

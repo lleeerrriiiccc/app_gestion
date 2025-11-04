@@ -177,7 +177,7 @@ def users():
     if request.method == 'GET':
         if 'user' not in session:
             return redirect(url_for('login'))
-        return render_template('register.html')
+        return render_template('user_add.html')
 
     # POST -> create user (public)
     user = request.form.get('username')
@@ -244,9 +244,15 @@ def invoice():
 @app.route('/menu', methods=['GET'])
 def menu():
     import json
-    with open(os.path.join(template_dir, 'menu.json'), 'r') as f:
+    with open(os.path.join(template_dir, 'menu.json'), 'r', encoding='utf-8') as f:
         menu_data = json.load(f)
-    return jsonify(menu_data)
+    q = request.args.get('user', '')
+    user = session.get('user', '')
+    if privileges(user) == 1:
+        return jsonify(menu_data["admin"])
+    elif privileges(user) == 0:
+        return jsonify(menu_data["user"])
+    return abort(403)
 
 @app.route('/api/me', methods=['GET'])
 @login_required

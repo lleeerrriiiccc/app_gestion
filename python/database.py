@@ -134,7 +134,6 @@ def check_clients(client):
     cursor = conn.cursor()
     client = client + '%'
     cursor.execute("SELECT name FROM clientes WHERE NAME LIKE %s;", (client,))
-    print("SELECT name FROM clientes WHERE NAME LIKE %s;", (client,))
     rows = cursor.fetchall()
     print(rows)
     cursor.close()

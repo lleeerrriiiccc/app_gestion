@@ -48,7 +48,7 @@
         async function loadMenu(){
             statusEl.textContent = 'Cargando menú...';
             try{
-                const res = await fetch('/menu', {cache:'no-store'});
+                const res = await fetch('/menu', {cache:'no-store', headers: {"Content-Type": "application/json; charset=utf-8"}});
                 if(!res.ok) throw new Error('No menu.json');
                 const data = await res.json();
 
@@ -62,8 +62,9 @@
                 }
 
                 renderMenu();
-                const total = menuData.reduce((s,g)=>s+(g.items?g.items.length:0),0);
-                statusEl.textContent = `${total} entradas de menú`;
+                fetch('/api/me').then(r=>r.json()).then(user=>{
+                    statusEl.textContent = `Conectado como ${user.user || user.name || 'desconocido'}`;
+                });
             }catch(err){
                 console.error(err);
                 menuEl.innerHTML = '<li class="empty">No se pudo cargar el menú.</li>';
