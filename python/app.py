@@ -3,7 +3,6 @@ from flask import Flask, render_template, request, redirect, url_for, session, a
 from database import *
 from encription import *
 from werkzeug.utils import secure_filename
-import mysql.connector
 import os
 from flask import send_from_directory
 from flask_cors import CORS
@@ -16,6 +15,8 @@ CORS(app)
 
 # Simple secret for sessions (change in production)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-key-change-me')
+app.config.update(SESSION_COOKIE_HTTPONLY=True,
+                  SESSION_COOKIE_SAMESITE='Lax')
 
 
 @app.route('/')
@@ -52,7 +53,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    session.clear()
     return redirect(url_for('login'))
 
 
@@ -230,6 +231,12 @@ def dashboard():
 
 @app.route('/users/add', methods=['GET', 'POST'])
 def users():
+    if privileges(session.get('user', '')) == 1:
+        pass
+    elif privileges(session.get('user', '')) == 0:
+        abort(403)
+    else:
+        abort(403)
     # Allow public POST so users can self-register.
     # For GET, require login to view the register module inside the dashboard;
     # if not logged in, redirect to login page.
