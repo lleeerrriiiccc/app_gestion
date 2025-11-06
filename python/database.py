@@ -142,4 +142,12 @@ def check_clients(client):
         return rows
     else:
         return False
+    
+def delete_invoice(invoice_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM facturas WHERE idfactura = %s", (invoice_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
 

@@ -82,7 +82,7 @@
                 var path = r.ubicacion_factura;
                 const nombreArchivo = path.split(/(\\|\/)/g).pop();
                 // try to pick id if available
-                const id = r.id || r.ID || r.id_factura || '';
+                const id = r.idfactura || '';
                 const cliente = r.cliente || r.cliente_name || '';
                 const file = nombreArchivo || '';
                 const estado = r.factura_pendiente;
@@ -97,6 +97,7 @@
         }
 
         async function confirmDelete(id){
+            console.log("confirmDelete", id);
             if(!id) return;
             if(!confirm(`¿Eliminar la factura con ID ${id}? Esta acción no se puede deshacer.`)) return;
             message.textContent = '';
