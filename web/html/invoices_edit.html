@@ -36,6 +36,7 @@
 
                 <button id="btnFilter" class="primary">Filtrar</button>
                 <button id="btnReload" class="ghost">Recargar</button>
+                <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
             </div>
         </section>
 
@@ -100,7 +101,7 @@
 
         function statusLabel(val){
             // acuerdo: en la BD 0 -> pendiente, 1 -> pagada (según uploader)
-            return (val === 0 || val === '0') ? 'Pendiente' : 'Pagada';
+            return (val === 1 || val === '1') ? 'Pendiente' : 'Pagada';
         }
 
         async function loadInvoices(){
@@ -120,10 +121,12 @@
             if(!rows || rows.length===0){ tableBody.innerHTML = '<tr><td colspan="6">No hay facturas</td></tr>'; return; }
             rows.forEach(r=>{
                 const tr = document.createElement('tr');
+                var path = r.ubicacion_factura;
+                const nombreArchivo = path.split(/(\\|\/)/g).pop();
                 tr.innerHTML = `
                     <td>${r.idfactura}</td>
                     <td>${escapeHtml(r.cliente||r.cliente_name||'')}</td>
-                    <td>${r.ubicacion_factura ? `<a href="${escapeHtml(r.ubicacion_factura)}" target="_blank">ver</a>` : ''}</td>
+                    <td>${r.ubicacion_factura ? `<a href="/pdf/${nombreArchivo}" target="_blank">ver</a>` : ''}</td>
                     <td>${statusLabel(r.factura_pendiente)}</td>
                     <td>${escapeHtml(r.email||'')}</td>
                     <td><button class="ghost" data-id="${r.idfactura}" data-cliente="${escapeAttr(r.cliente)}" data-email="${escapeAttr(r.email)}" data-pendiente="${r.factura_pendiente}">Editar</button></td>

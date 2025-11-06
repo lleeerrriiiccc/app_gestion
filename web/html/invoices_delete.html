@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Eliminar facturas</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Facturas</div>
+            <div class="small">Eliminar facturas</div>
+        </div>
+
+        <section>
+            <div class="form-inline">
+                <label class="muted">Filtro cliente</label>
+                <input id="filterClient" type="text" placeholder="Nombre cliente" />
+                <button id="btnFilter" class="primary">Filtrar</button>
+                <button id="btnReload" class="ghost">Recargar</button>
+            </div>
+        </section>
+
+        <section style="margin-top:12px">
+            <div class="table-responsive">
+            <table id="invoicesTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Archivo</th>
+                        <th>Estado</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            </div>
+        </section>
+
+        <div id="message" role="status" aria-live="polite" style="margin-top:10px"></div>
+
+        <div style="margin-top:12px">
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+        </div>
+
+    </main>
+
+    <script>
+        const tableBody = document.querySelector('#invoicesTable tbody');
+        const filterClient = document.getElementById('filterClient');
+        const btnFilter = document.getElementById('btnFilter');
+        const btnReload = document.getElementById('btnReload');
+        const message = document.getElementById('message');
+
+        function escapeHtml(s){ if (s === null || s === undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function escapeAttr(s){ if (s === null || s === undefined) return ''; return String(s).replace(/"/g,'&quot;'); }
+        function statusLabel(val){ return (val === 0 || val === '0') ? 'Pendiente' : 'Pagada'; }
+
+        async function loadInvoices(){
+            tableBody.innerHTML = '';
+            message.textContent = '';
+            try{
+                const client = filterClient.value.trim();
+                const params = new URLSearchParams();
+                if(client) params.set('client', client);
+                const res = await fetch('/api/invoices?' + params.toString());
+                if(!res.ok) { tableBody.innerHTML = '<tr><td colspan="6">Error cargando facturas</td></tr>'; return; }
+                const rows = await res.json();
+                renderTable(rows);
+            }catch(e){ tableBody.innerHTML = '<tr><td colspan="6">No se pudieron cargar facturas</td></tr>'; }
+        }
+
+        function renderTable(rows){
+            tableBody.innerHTML = '';
+            if(!rows || rows.length===0){ tableBody.innerHTML = '<tr><td colspan="6">No hay facturas</td></tr>'; return; }
+            rows.forEach(r=>{
+                const tr = document.createElement('tr');
+                var path = r.ubicacion_factura;
+                const nombreArchivo = path.split(/(\\|\/)/g).pop();
+                // try to pick id if available
+                const id = r.id || r.ID || r.id_factura || '';
+                const cliente = r.cliente || r.cliente_name || '';
+                const file = nombreArchivo || '';
+                const estado = r.factura_pendiente;
+                const email = r.email || '';
+                tr.innerHTML = `\n                    <td>${escapeHtml(id)}</td>\n                    <td>${escapeHtml(cliente)}</td>\n                    <td>${file ? `<a href="/pdf/${escapeAttr(file)}" target="_blank">ver</a>` : ''}</td>\n                    <td>${statusLabel(estado)}</td>\n                    <td>${escapeHtml(email)}</td>\n                    <td><button class="ghost" data-id="${escapeAttr(id)}">Eliminar</button></td>\n                `;
+                tableBody.appendChild(tr);
+            });
+            tableBody.querySelectorAll('button[data-id]').forEach(btn=> btn.addEventListener('click', ()=>{
+                const id = btn.getAttribute('data-id');
+                confirmDelete(id);
+            }));
+        }
+
+        async function confirmDelete(id){
+            if(!id) return;
+            if(!confirm(`¿Eliminar la factura con ID ${id}? Esta acción no se puede deshacer.`)) return;
+            message.textContent = '';
+            try{
+                const res = await fetch('/invoices/delete', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({id}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){ message.className='success'; message.textContent = text || 'Factura eliminada'; loadInvoices(); }
+                else { message.className='error'; message.textContent = text || 'Error al eliminar factura'; }
+            }catch(err){ message.className='error'; message.textContent='No se pudo conectar'; }
+        }
+
+        btnFilter.addEventListener('click', loadInvoices);
+        btnReload.addEventListener('click', ()=>{ filterClient.value=''; loadInvoices(); });
+
+        // initial load
+        loadInvoices();
+    </script>
+</body>
+</html>

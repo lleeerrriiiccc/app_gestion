@@ -328,15 +328,28 @@ def api_me():
         'privilege': session.get('privilege', 0)
     })
 
-@app.route('/invoices/view', methods=['GET'])
-@login_required
-def invoices_view():
-    return render_template('invoices_view.html')
 
-@app.route('/pdf/<path:filename>')
+
+@app.route('/invoices/delete', methods=['GET', 'POST'])
+@login_required
+def invoices_delete():
+    if request.method == 'GET':
+        return render_template('invoices_delete.html')
+    # POST -> delete invoice
+    invoice_id = request.form.get('id')
+    if not invoice_id:
+        return ("ID is required", 400)
+    try:
+        delete_invoice(invoice_id)
+        return ("Invoice deleted successfully", 200)
+    except Exception as e:
+        return (f"Error deleting invoice: {e}", 500)
+
+@app.route('/pdf/<filename>')
+@login_required
 def serve_pdf(filename):
-    # Envía el PDF desde la carpeta files/bills/
-    return send_from_directory('files/bills', filename)
+    files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
+    return send_from_directory(files_dir, filename)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=80)
+    app.run(debug=True, host='0.0.0.0', port=80)
