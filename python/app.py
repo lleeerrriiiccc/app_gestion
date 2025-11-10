@@ -179,6 +179,56 @@ def api_contact():
         return ("Missing id", 400)
     return jsonify(db.contact_info(id))
 
+
+@app.route('/api/addresses', methods=['GET'])
+@login_required
+def api_addresses():
+    client_id = request.args.get('client_id')
+    if not client_id:
+        return ("Missing client_id", 400)
+    try:
+        return jsonify(db.addresses_info(client_id))
+    except Exception as e:
+        print('api_addresses error:', e)
+        return jsonify([])
+
+
+# API: add contact for a client
+@app.route('/api/contacts/add', methods=['POST'])
+@login_required
+def api_contact_add():
+    client_id = request.form.get('client_id') or request.json and request.json.get('client_id')
+    name = request.form.get('name') or request.json and request.json.get('name')
+    email = request.form.get('email') or request.json and request.json.get('email')
+    tel = request.form.get('tel') or request.json and request.json.get('tel')
+    if not client_id or not name:
+        return ("Missing parameters", 400)
+    try:
+        db.add_contact(client_id, name, email, tel)
+        return ("Contact added", 201)
+    except Exception as e:
+        print('api_contact_add error:', e)
+        return (f"Error adding contact: {e}", 500)
+
+
+# API: add address for a client
+@app.route('/api/addresses/add', methods=['POST'])
+@login_required
+def api_address_add():
+    client_id = request.form.get('client_id') or request.json and request.json.get('client_id')
+    direccion = request.form.get('direccion') or request.json and request.json.get('direccion')
+    poblacion = request.form.get('poblacion') or request.json and request.json.get('poblacion')
+    codigo_postal = request.form.get('codigo_postal') or request.json and request.json.get('codigo_postal')
+    pais = request.form.get('pais') or request.json and request.json.get('pais')
+    if not client_id or not direccion:
+        return ("Missing parameters", 400)
+    try:
+        db.add_address(client_id, direccion, poblacion, codigo_postal, pais)
+        return ("Address added", 201)
+    except Exception as e:
+        print('api_address_add error:', e)
+        return (f"Error adding address: {e}", 500)
+
 #USER MANAGEMENT
 # Users edit (change password)
 @app.route('/users/edit', methods=['GET', 'POST'])

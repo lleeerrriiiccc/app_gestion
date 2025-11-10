@@ -179,3 +179,42 @@ def contact_info(id):
     cursor.close()
     conn.close()
     return results
+
+def addresses_info(client_id):
+    """Return shipping/address records for a given client id from datos_envio."""
+    query = "select * from datos_envio where cliente = %s;"
+    conn = connect()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(query, (client_id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+
+def add_contact(client_id, name, email, tel):
+    """Insert a new contact into datos_contacto for a client.
+    Assumes idcontacto is AUTO_INCREMENT or optional in the schema.
+    """
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO datos_contacto (cliente, name, email, tel) VALUES (%s, %s, %s, %s)",
+        (client_id, name, email, tel)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def add_address(client_id, direccion, poblacion, codigo_postal, pais):
+    """Insert a new shipping address into datos_envio for a client."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO datos_envio (cliente, poblacion, codigo_postal, direccion, pais) VALUES (%s, %s, %s, %s, %s)",
+        (client_id, poblacion, codigo_postal, direccion, pais)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()

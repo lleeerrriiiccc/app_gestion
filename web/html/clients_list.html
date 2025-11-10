@@ -31,7 +31,8 @@
                         <th>ID</th>
                         <th>Nombre</th>
                         <th>Email</th>
-                        <th>Acciones</th>
+                        <th>Contactos</th>
+                        <th>Direcciones</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -79,7 +80,7 @@
                 const name = r.name || r.nombre || r.cliente || '';
                 const email = r.email || '';
                 const tr = document.createElement('tr');
-                tr.innerHTML = `\n                    <td>${escapeHtml(id)}</td>\n                    <td>${escapeHtml(name)}</td>\n                    <td>${escapeHtml(email)}</td>\n                    <td><button class="ghost btn-contacts" data-id="${escapeAttr(id)}" data-name="${escapeAttr(name)}">Contactos ▾</button></td>\n                `;
+                tr.innerHTML = `\n                    <td>${escapeHtml(id)}</td>\n                    <td>${escapeHtml(name)}</td>\n                    <td>${escapeHtml(email)}</td>\n                    <td><button class="ghost btn-contacts" data-id="${escapeAttr(id)}" data-name="${escapeAttr(name)}">Contactos ▾</button></td>\n                    <td><button class="ghost btn-addresses" data-id="${escapeAttr(id)}" data-name="${escapeAttr(name)}">Direcciones ▾</button></td>\n                `;
                 tableBody.appendChild(tr);
             });
             // attach expand handlers
@@ -93,15 +94,16 @@
         // contacts cache to avoid refetching
         const contactsCache = new Map();
 
-        function makeContactsRow(html){
-            const tr = document.createElement('tr');
-            tr.className = 'contacts-row';
-            const td = document.createElement('td');
-            td.colSpan = 4;
-            td.innerHTML = html;
-            tr.appendChild(td);
-            return tr;
-        }
+                function makeContactsRow(html){
+                    const tr = document.createElement('tr');
+                    tr.className = 'contacts-row';
+                    const td = document.createElement('td');
+                    // table now has 5 columns (ID, Nombre, Email, Contactos, Direcciones)
+                    td.colSpan = 5;
+                    td.innerHTML = html;
+                    tr.appendChild(td);
+                    return tr;
+                }
 
         async function toggleContacts(btn, clientId, clientName){
             // find the parent row
@@ -120,7 +122,8 @@
             // load from cache or fetch
             if(contactsCache.has(clientId)){
                 const contacts = contactsCache.get(clientId);
-                placeholder.firstChild.innerHTML = renderContactsList(contacts);
+                placeholder.firstChild.innerHTML = renderContactsList(contacts, clientId);
+                attachAddContactHandler(placeholder, clientId);
                 return;
             }
 
@@ -129,13 +132,24 @@
                 if(!res.ok){ placeholder.firstChild.innerHTML = '<div class="error">Error cargando contactos</div>'; return; }
                 const rows = await res.json();
                 contactsCache.set(clientId, rows);
-                placeholder.firstChild.innerHTML = renderContactsList(rows);
+                placeholder.firstChild.innerHTML = renderContactsList(rows, clientId);
+                attachAddContactHandler(placeholder, clientId);
             }catch(e){ placeholder.firstChild.innerHTML = '<div class="error">No se pudieron cargar contactos</div>'; }
         }
 
-        function renderContactsList(rows){
-            if(!rows || rows.length===0) return '<div class="small">No hay contactos</div>';
-            let html = '<div class="contacts-list" style="display:flex;flex-direction:column;gap:8px">';
+        function renderContactsList(rows, clientId){
+            // include add-contact form at top
+            let html = '<div style="margin-bottom:8px;padding:8px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbfdff)">';
+            html += '<div style="font-weight:600;margin-bottom:6px">Añadir contacto</div>';
+            html += `<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+            html += `<input class="new-contact-name" placeholder="Nombre" style="flex:1;min-width:140px">`;
+            html += `<input class="new-contact-email" placeholder="Email" style="flex:1;min-width:160px">`;
+            html += `<input class="new-contact-tel" placeholder="Teléfono" style="width:140px">`;
+            html += `<button class="primary add-contact-btn">Añadir</button>`;
+            html += `</div></div>`;
+
+            if(!rows || rows.length===0) return html + '<div class="small">No hay contactos</div>';
+            html += '<div class="contacts-list" style="display:flex;flex-direction:column;gap:8px">';
             rows.forEach(c=>{
                 const id = c.idcontacto || c.id || '';
                 const name = c.name || c.nombre || '';
@@ -152,11 +166,127 @@
             return html;
         }
 
+        function attachAddContactHandler(placeholder, clientId){
+            const addBtn = placeholder.firstChild.querySelector('.add-contact-btn');
+            if(!addBtn) return;
+            addBtn.addEventListener('click', async ()=>{
+                const name = placeholder.firstChild.querySelector('.new-contact-name').value.trim();
+                const email = placeholder.firstChild.querySelector('.new-contact-email').value.trim();
+                const tel = placeholder.firstChild.querySelector('.new-contact-tel').value.trim();
+                if(!name){ alert('Nombre requerido'); return; }
+                try{
+                    const res = await fetch('/api/contacts/add', {
+                        method:'POST',
+                        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                        body: new URLSearchParams({client_id: clientId, name, email, tel}).toString()
+                    });
+                    const text = await res.text();
+                    if(res.ok){
+                        const r2 = await fetch('/api/contacts?client_id=' + encodeURIComponent(clientId));
+                        const updated = await r2.json();
+                        contactsCache.set(clientId, updated);
+                        placeholder.firstChild.innerHTML = renderContactsList(updated, clientId);
+                        attachAddContactHandler(placeholder, clientId);
+                    } else { alert(text || 'Error'); }
+                }catch(err){ alert('No se pudo conectar'); }
+            });
+        }
+
         btnFilter.addEventListener('click', loadClients);
         btnReload.addEventListener('click', ()=>{ filterName.value=''; loadClients(); });
 
         // initial load
         loadClients();
+        
+        // Addresses (envio) cache + toggle
+        const addressesCache = new Map();
+
+        async function toggleAddresses(btn, clientId, clientName){
+            const row = btn.closest('tr');
+            if(!row) return;
+            const next = row.nextElementSibling;
+            if(next && next.classList && next.classList.contains('contacts-row')){ next.remove(); return; }
+            const placeholder = makeContactsRow('<div style="padding:12px">Cargando direcciones...</div>');
+            row.parentNode.insertBefore(placeholder, row.nextSibling);
+            if(addressesCache.has(clientId)){
+                placeholder.firstChild.innerHTML = renderAddressesList(addressesCache.get(clientId));
+                attachAddAddressHandler(placeholder, clientId);
+                return;
+            }
+            try{
+                const res = await fetch('/api/addresses?client_id=' + encodeURIComponent(clientId));
+                if(!res.ok){ placeholder.firstChild.innerHTML = '<div class="error">Error cargando direcciones</div>'; return; }
+                const rows = await res.json();
+                addressesCache.set(clientId, rows);
+                placeholder.firstChild.innerHTML = renderAddressesList(rows);
+                attachAddAddressHandler(placeholder, clientId);
+            }catch(e){ placeholder.firstChild.innerHTML = '<div class="error">No se pudieron cargar direcciones</div>'; }
+        }
+
+        function renderAddressesList(rows){
+            // include add-address form at top
+            let html = '<div style="margin-bottom:8px;padding:8px;border-radius:8px;background:linear-gradient(180deg,#fff,#fbfdff)">';
+            html += '<div style="font-weight:600;margin-bottom:6px">Añadir dirección de envío</div>';
+            html += `<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+            html += `<input class="new-addr-direccion" placeholder="Dirección" style="flex:1;min-width:200px">`;
+            html += `<input class="new-addr-poblacion" placeholder="Población" style="min-width:140px">`;
+            html += `<input class="new-addr-cp" placeholder="C.P." style="width:100px">`;
+            html += `<input class="new-addr-pais" placeholder="País" style="width:120px">`;
+            html += `<button class="primary add-address-btn">Añadir</button>`;
+            html += `</div></div>`;
+
+            if(!rows || rows.length===0) return html + '<div class="small">No hay direcciones de envío</div>';
+            let listHtml = '<div class="addresses-list" style="display:flex;flex-direction:column;gap:8px">';
+            rows.forEach(a=>{
+                const id = a.idregistro || a.idregistro || a.id || '';
+                const poblacion = a.poblacion || a.city || '';
+                const direccion = a.direccion || a.address || '';
+                const cp = a.codigo_postal || a.codigo || '';
+                const pais = a.pais || a.country || '';
+                listHtml += `<div style="padding:8px;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
+                listHtml += `<div style="font-weight:600">${escapeHtml(direccion)}</div>`;
+                listHtml += `<div class="small">${escapeHtml(poblacion)} ${cp?('• ' + escapeHtml(cp)) : ''} ${pais?('• ' + escapeHtml(pais)) : ''}</div>`;
+                listHtml += `</div>`;
+            });
+            listHtml += '</div>';
+            return html + listHtml;
+        }
+
+        function attachAddAddressHandler(placeholder, clientId){
+            const addBtn = placeholder.firstChild.querySelector('.add-address-btn');
+            if(!addBtn) return;
+            addBtn.addEventListener('click', async ()=>{
+                const direccion = placeholder.firstChild.querySelector('.new-addr-direccion').value.trim();
+                const poblacion = placeholder.firstChild.querySelector('.new-addr-poblacion').value.trim();
+                const codigo_postal = placeholder.firstChild.querySelector('.new-addr-cp').value.trim();
+                const pais = placeholder.firstChild.querySelector('.new-addr-pais').value.trim();
+                if(!direccion){ alert('Dirección requerida'); return; }
+                try{
+                    const res = await fetch('/api/addresses/add', {
+                        method:'POST',
+                        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                        body: new URLSearchParams({client_id: clientId, direccion, poblacion, codigo_postal, pais}).toString()
+                    });
+                    const text = await res.text();
+                    if(res.ok){
+                        const r2 = await fetch('/api/addresses?client_id=' + encodeURIComponent(clientId));
+                        const updated = await r2.json();
+                        addressesCache.set(clientId, updated);
+                        placeholder.firstChild.innerHTML = renderAddressesList(updated);
+                        attachAddAddressHandler(placeholder, clientId);
+                    } else { alert(text || 'Error'); }
+                }catch(err){ alert('No se pudo conectar'); }
+            });
+        }
+
+        // delegate address buttons (they are created when rendering)
+        document.addEventListener('click', (ev)=>{
+            const btn = ev.target.closest && ev.target.closest('.btn-addresses');
+            if(!btn) return;
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            toggleAddresses(btn, id, name);
+        });
     </script>
 </body>
 </html>
