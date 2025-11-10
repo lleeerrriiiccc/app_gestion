@@ -235,7 +235,7 @@ def api_address_add():
 @login_required
 def users_edit():
     if request.method == 'GET':
-        return render_template('users_edit.html')
+        return render_template('users/users_edit.html')
 
     # POST -> update password
     username = request.form.get('username')
@@ -259,7 +259,7 @@ def users_edit():
 @login_required
 def users_delete():
     if request.method == 'GET':
-        return render_template('users_delete.html')
+        return render_template('users/users_delete.html')
 
     username = request.form.get('username')
     if not username:
@@ -285,7 +285,7 @@ def users():
     if request.method == 'GET':
         if 'user' not in session:
             return redirect(url_for('login'))
-        return render_template('user_add.html')
+        return render_template('users/user_add.html')
 
     # POST -> create user (public)
     user = request.form.get('username')
@@ -313,7 +313,7 @@ def users():
 @login_required
 def invoices_edit():
     if request.method == 'GET':
-        return render_template('invoices_edit.html')
+        return render_template('facturas/invoices_edit.html')
     # POST -> update invoice
     id_ = request.form.get('id')
     cliente = request.form.get('cliente')
@@ -352,7 +352,7 @@ def invoice():
     if request.method == 'GET':
         if 'user' not in session:
             return redirect(url_for('login'))
-        return render_template('upload_fragment.html')
+        return render_template('facturas/upload_fragment.html')
     # ensure upload folder exists under repo/files/bills
     upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
     os.makedirs(upload_dir, exist_ok=True)
@@ -393,7 +393,7 @@ def invoice():
 @login_required
 def invoices_delete():
     if request.method == 'GET':
-        return render_template('invoices_delete.html')
+        return render_template('facturas/invoices_delete.html')
     # POST -> delete invoice
     invoice_id = request.form.get('id')
     if not invoice_id:
@@ -429,7 +429,7 @@ def menu():
 @app.route('/clients', methods=['GET'])
 @login_required
 def clients():
-    return render_template('clients_list.html')
+    return render_template('clientes/clients_list.html')
 
 
 
