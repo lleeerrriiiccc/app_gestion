@@ -4,6 +4,11 @@
         {"name": "Añadir factura", "href": "/invoices/add"},
         {"name": "Editar factura", "href": "/invoices/edit"},
         {"name": "Eliminar factura", "href": "/invoices/delete"}
+        ],
+        "Gestion de clientes": [
+        {"name": "Añadir cliente", "href": "/clients/add"},
+        {"name": "Editar cliente", "href": "/clients/edit"},
+        {"name": "Eliminar cliente", "href": "/clients/delete"}
         ]
     },
     "admin":{
@@ -16,6 +21,11 @@
         {"name": "Añadir usuario", "href": "/users/add"},
         {"name": "Editar usuario", "href": "/users/edit"},
         {"name": "Eliminar usuario", "href": "/users/delete"}
+        ],
+        "Gestion de clientes": [
+        {"name": "Añadir cliente", "href": "/clients/add"},
+        {"name": "Editar cliente", "href": "/clients/edit"},
+        {"name": "Eliminar cliente", "href": "/clients/delete"}
         ]
     }
 }

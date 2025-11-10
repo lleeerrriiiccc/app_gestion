@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 from flask import send_from_directory
 from flask_cors import CORS
+import database as db
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
@@ -15,15 +16,16 @@ CORS(app)
 
 # Simple secret for sessions (change in production)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-key-change-me')
-app.config.update(SESSION_COOKIE_HTTPONLY=True,
-                  SESSION_COOKIE_SAMESITE='Lax')
-
+app.config.update(
+                SESSION_COOKIE_HTTPONLY=True,
+                SESSION_COOKIE_SAMESITE='Lax')
 
 @app.route('/')
 def index():
     return redirect(url_for('login'))
 
-
+#SESSION MANAGEMENT
+#login page & authentication
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     # GET -> render login page
@@ -34,10 +36,10 @@ def login():
     user = request.form.get('username') or request.args.get('username')
     password = request.form.get('password') or request.args.get('password')
 
-    if not check_params([user, password]):
+    if not db.check_params([user, password]):
         abort(400)
 
-    res = get_users(user)
+    res = db.get_users(user)
     if not res:
         # user not found
         abort(401)
@@ -50,13 +52,13 @@ def login():
     else:
         abort(401)
 
-
+# Logout endpoint
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
+#check login decorator
 def login_required(f):
     from functools import wraps
 
@@ -69,7 +71,10 @@ def login_required(f):
     return wrapped
 
 
-# Serve css files from web/css at /css/<path:filename>
+
+
+
+# Static file serving
 @app.route('/css/<path:filename>')
 def css(filename):
     css_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'css'))
@@ -85,19 +90,26 @@ def img(filename):
 @login_required
 def data():
     q = request.args.get('data', '')
-    if check_params([q]) is False:
+    if db.check_params([q]) is False:
         return jsonify([])
-    clients = check_clients(q)
+    clients = db.check_clients(q)
     if not clients:
         return jsonify([])
     return jsonify(clients)
 
+@app.route('/pdf/<filename>')
+@login_required
+def serve_pdf(filename):
+    files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
+    return send_from_directory(files_dir, filename)
+
+# API requests
 # API: return users list for management UI
 @app.route('/api/users', methods=['GET'])
 @login_required
 def api_users():
     try:
-        results = get_users('*')
+        results = db.get_users('*')
         # normalize list of dicts -> return only username and optional fields
         out = []
         for r in results:
@@ -108,49 +120,7 @@ def api_users():
         return jsonify(out)
     except Exception:
         return jsonify([])
-
-
-# Users edit (change password)
-@app.route('/users/edit', methods=['GET', 'POST'])
-@login_required
-def users_edit():
-    if request.method == 'GET':
-        return render_template('users_edit.html')
-
-    # POST -> update password
-    username = request.form.get('username')
-    password = request.form.get('password')
-    if not username or not password:
-        return ("Missing parameters", 400)
-    if len(password) < 8:
-        return ("Password too short", 400)
-    try:
-        hashed = encrypt_password(password)
-        if isinstance(hashed, bytes):
-            hashed = hashed.decode('utf-8')
-        update_data("UPDATE users SET pass=%s WHERE user=%s", (hashed, username))
-        return ("User updated", 200)
-    except Exception as e:
-        return (f"Error updating user: {e}", 500)
-
-
-# Users delete
-@app.route('/users/delete', methods=['GET', 'POST'])
-@login_required
-def users_delete():
-    if request.method == 'GET':
-        return render_template('users_delete.html')
-
-    username = request.form.get('username')
-    if not username:
-        return ("Missing username", 400)
-    try:
-        delete_data("DELETE FROM users WHERE user = %s", (username,))
-        return ("User deleted", 200)
-    except Exception as e:
-        return (f"Error deleting user: {e}", 500)
-
-
+    
 # API: invoices listing
 @app.route('/api/invoices', methods=['GET'])
 @login_required
@@ -158,7 +128,7 @@ def api_invoices():
     client = request.args.get('client', '').strip()
     paid = request.args.get('paid', 'all')
     try:
-        conn = connect()
+        conn = db.connect()
         cur = conn.cursor(dictionary=True)
         base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente"
         params = []
@@ -183,8 +153,111 @@ def api_invoices():
     except Exception as e:
         print('api_invoices error:', e)
         return jsonify([])
+    
+# API: current user info
+@app.route('/api/me', methods=['GET'])
+@login_required
+def api_me():
+    return jsonify({
+        'user': session.get('user'),
+        'privilege': session.get('privilege', 0)
+    })
+
+#API: clients info
+@app.route('/api/clients', methods=['GET'])
+@login_required
+def api_clients():
+    client = request.args.get('name', '*')
+    return jsonify(db.clients_info(client))
+
+#API: contact info
+@app.route('/api/contacts', methods=['GET'])
+@login_required
+def api_contact():
+    id = request.args.get('client_id')
+    if not id:
+        return ("Missing id", 400)
+    return jsonify(db.contact_info(id))
+
+#USER MANAGEMENT
+# Users edit (change password)
+@app.route('/users/edit', methods=['GET', 'POST'])
+@login_required
+def users_edit():
+    if request.method == 'GET':
+        return render_template('users_edit.html')
+
+    # POST -> update password
+    username = request.form.get('username')
+    password = request.form.get('password')
+    if not username or not password:
+        return ("Missing parameters", 400)
+    if len(password) < 8:
+        return ("Password too short", 400)
+    try:
+        hashed = encrypt_password(password)
+        if isinstance(hashed, bytes):
+            hashed = hashed.decode('utf-8')
+        db.update_data("UPDATE users SET pass=%s WHERE user=%s", (hashed, username))
+        return ("User updated", 200)
+    except Exception as e:
+        return (f"Error updating user: {e}", 500)
 
 
+# Users delete
+@app.route('/users/delete', methods=['GET', 'POST'])
+@login_required
+def users_delete():
+    if request.method == 'GET':
+        return render_template('users_delete.html')
+
+    username = request.form.get('username')
+    if not username:
+        return ("Missing username", 400)
+    try:
+        db.delete_data("DELETE FROM users WHERE user = %s", (username,))
+        return ("User deleted", 200)
+    except Exception as e:
+        return (f"Error deleting user: {e}", 500)
+
+# Users add
+@app.route('/users/add', methods=['GET', 'POST'])
+def users():
+    if db.privileges(session.get('user', '')) == 1:
+        pass
+    elif db.privileges(session.get('user', '')) == 0:
+        abort(403)
+    else:
+        abort(403)
+    # Allow public POST so users can self-register.
+    # For GET, require login to view the register module inside the dashboard;
+    # if not logged in, redirect to login page.
+    if request.method == 'GET':
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return render_template('user_add.html')
+
+    # POST -> create user (public)
+    user = request.form.get('username')
+    password = request.form.get('password')
+    privilege = request.form.get('privilege', 0)
+    if not db.check_params([user, password]):
+        abort(400)
+
+    if db.check_username(user):
+        return ("Username already exists", 409)
+
+    hashed_password = encrypt_password(password)
+    # store as utf-8 string in DB
+    if isinstance(hashed_password, bytes):
+        hashed_password = hashed_password.decode('utf-8')
+
+    db.create_user(user, hashed_password, privilege)
+    return ("User registered successfully", 201)
+
+
+
+#INVOICE MANAGEMENT
 # Invoices edit page & update
 @app.route('/invoices/edit', methods=['GET', 'POST'])
 @login_required
@@ -199,7 +272,7 @@ def invoices_edit():
     if not id_:
         return ("Missing id", 400)
     try:
-        conn = connect()
+        conn = db.connect()
         cur = conn.cursor()
         cur.execute("UPDATE facturas SET cliente = (SELECT idcliente from clientes WHERE name = %s), email=%s, factura_pendiente=%s WHERE idfactura=%s", (cliente, email, factura_pendiente, id_))
         conn.commit()
@@ -221,49 +294,7 @@ def invoices_edit():
         return jsonify(names)
     except Exception as e:
         return jsonify([])
-
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html')
-
-
-@app.route('/users/add', methods=['GET', 'POST'])
-def users():
-    if privileges(session.get('user', '')) == 1:
-        pass
-    elif privileges(session.get('user', '')) == 0:
-        abort(403)
-    else:
-        abort(403)
-    # Allow public POST so users can self-register.
-    # For GET, require login to view the register module inside the dashboard;
-    # if not logged in, redirect to login page.
-    if request.method == 'GET':
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return render_template('user_add.html')
-
-    # POST -> create user (public)
-    user = request.form.get('username')
-    password = request.form.get('password')
-    privilege = request.form.get('privilege', 0)
-    if not check_params([user, password]):
-        abort(400)
-
-    if check_username(user):
-        return ("Username already exists", 409)
-
-    hashed_password = encrypt_password(password)
-    # store as utf-8 string in DB
-    if isinstance(hashed_password, bytes):
-        hashed_password = hashed_password.decode('utf-8')
-
-    create_user(user, hashed_password, privilege)
-    return ("User registered successfully", 201)
-
-
+    
 # Upload endpoint for invoices
 @app.route('/invoices/add', methods=["GET", 'POST'])
 @login_required
@@ -294,7 +325,7 @@ def invoice():
 
         # Insert into DB using database.connect() if available, else fallback
         try:
-            upload_invoice(client, file_path, email, checkbox)
+            db.upload_invoice(client, file_path, email, checkbox)
         except Exception as db_err:
             # remove file if DB insert failed
             try:
@@ -307,29 +338,7 @@ def invoice():
     except Exception as e:
         return (f"Upload error: {e}", 500)
     
-@app.route('/menu', methods=['GET'])
-def menu():
-    import json
-    with open(os.path.join(template_dir, 'menu.json'), 'r', encoding='utf-8') as f:
-        menu_data = json.load(f)
-    q = request.args.get('user', '')
-    user = session.get('user', '')
-    if privileges(user) == 1:
-        return jsonify(menu_data["admin"])
-    elif privileges(user) == 0:
-        return jsonify(menu_data["user"])
-    return abort(403)
-
-@app.route('/api/me', methods=['GET'])
-@login_required
-def api_me():
-    return jsonify({
-        'user': session.get('user'),
-        'privilege': session.get('privilege', 0)
-    })
-
-
-
+# Invoices delete page & delete
 @app.route('/invoices/delete', methods=['GET', 'POST'])
 @login_required
 def invoices_delete():
@@ -340,16 +349,45 @@ def invoices_delete():
     if not invoice_id:
         return ("ID is required", 400)
     try:
-        delete_invoice(invoice_id)
+        db.delete_invoice(invoice_id)
         return ("Invoice deleted successfully", 200)
     except Exception as e:
         return (f"Error deleting invoice: {e}", 500)
 
-@app.route('/pdf/<filename>')
+# Dashboard handling
+#DASHBOARD
+@app.route('/dashboard')
 @login_required
-def serve_pdf(filename):
-    files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
-    return send_from_directory(files_dir, filename)
+def dashboard():
+    return render_template('dashboard.html')
+
+# Menu endpoint
+@app.route('/menu', methods=['GET'])
+def menu():
+    import json
+    with open(os.path.join(template_dir, 'menu.json'), 'r', encoding='utf-8') as f:
+        menu_data = json.load(f)
+    q = request.args.get('user', '')
+    user = session.get('user', '')
+    if db.privileges(user) == 1:
+        return jsonify(menu_data["admin"])
+    elif db.privileges(user) == 0:
+        return jsonify(menu_data["user"])
+    return abort(403)
+
+#CLIENT MANAGEMENT
+@app.route('/clients', methods=['GET'])
+@login_required
+def clients():
+    return render_template('clients_list.html')
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=80)

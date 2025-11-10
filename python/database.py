@@ -151,3 +151,31 @@ def delete_invoice(invoice_id):
     cursor.close()
     conn.close()
 
+def clients_info(client="*"):
+    if client != "*":
+        query = "select * from clientes where name = %s;"    
+        conn = connect()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(query, (client,))
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return results
+    query = "select * from clientes;"    
+    conn = connect()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(query)
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+def contact_info(id):
+    query = "select * from datos_contacto where cliente = %s;"    
+    conn = connect()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(query, (id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results

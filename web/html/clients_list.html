@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Clientes — Listado</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Clientes</div>
+            <div class="small">Listado de clientes</div>
+        </div>
+
+        <section>
+            <div class="form-inline">
+                <label class="muted">Buscar</label>
+                <input id="filterName" type="text" placeholder="Nombre cliente" />
+                <button id="btnFilter" class="primary">Buscar</button>
+                <button id="btnReload" class="ghost">Recargar</button>
+            </div>
+        </section>
+
+        <section style="margin-top:12px">
+            <div class="table-responsive">
+            <table id="clientsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            </div>
+        </section>
+
+        <div id="message" role="status" aria-live="polite" style="margin-top:10px"></div>
+
+        <div style="margin-top:12px">
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+        </div>
+    </main>
+
+    <script>
+        const tableBody = document.querySelector('#clientsTable tbody');
+        const filterName = document.getElementById('filterName');
+        const btnFilter = document.getElementById('btnFilter');
+        const btnReload = document.getElementById('btnReload');
+        const message = document.getElementById('message');
+
+        function escapeHtml(s){ if (s === null || s === undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function escapeAttr(s){ if (s === null || s === undefined) return ''; return String(s).replace(/"/g,'&quot;'); }
+
+        async function loadClients(){
+            tableBody.innerHTML = '';
+            message.textContent = '';
+            try{
+                const name = filterName.value.trim();
+                const params = new URLSearchParams();
+                if(name) params.set('name', name);
+                // Endpoint expected: /api/clients?name=
+                const res = await fetch('/api/clients?' + params.toString());
+                if(!res.ok){ tableBody.innerHTML = '<tr><td colspan="4">Error cargando clientes</td></tr>'; return; }
+                const rows = await res.json();
+                renderTable(rows);
+            }catch(e){ tableBody.innerHTML = '<tr><td colspan="4">No se pudieron cargar clientes</td></tr>'; }
+        }
+
+        function renderTable(rows){
+            tableBody.innerHTML = '';
+            if(!rows || rows.length===0){ tableBody.innerHTML = '<tr><td colspan="4">No hay clientes</td></tr>'; return; }
+            rows.forEach(r=>{
+                const id = r.idcliente || r.id || r.idCliente || '';
+                const name = r.name || r.nombre || r.cliente || '';
+                const email = r.email || '';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `\n                    <td>${escapeHtml(id)}</td>\n                    <td>${escapeHtml(name)}</td>\n                    <td>${escapeHtml(email)}</td>\n                    <td><button class="ghost btn-contacts" data-id="${escapeAttr(id)}" data-name="${escapeAttr(name)}">Contactos ▾</button></td>\n                `;
+                tableBody.appendChild(tr);
+            });
+            // attach expand handlers
+            tableBody.querySelectorAll('.btn-contacts').forEach(btn=> btn.addEventListener('click', (ev)=>{
+                const id = btn.getAttribute('data-id');
+                const name = btn.getAttribute('data-name');
+                toggleContacts(btn, id, name);
+            }));
+        }
+
+        // contacts cache to avoid refetching
+        const contactsCache = new Map();
+
+        function makeContactsRow(html){
+            const tr = document.createElement('tr');
+            tr.className = 'contacts-row';
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.innerHTML = html;
+            tr.appendChild(td);
+            return tr;
+        }
+
+        async function toggleContacts(btn, clientId, clientName){
+            // find the parent row
+            const row = btn.closest('tr');
+            if(!row) return;
+            // if next sibling is contacts-row -> remove it (collapse)
+            const next = row.nextElementSibling;
+            if(next && next.classList && next.classList.contains('contacts-row')){
+                next.remove();
+                return;
+            }
+            // create placeholder row
+            const placeholder = makeContactsRow('<div style="padding:12px">Cargando contactos...</div>');
+            row.parentNode.insertBefore(placeholder, row.nextSibling);
+
+            // load from cache or fetch
+            if(contactsCache.has(clientId)){
+                const contacts = contactsCache.get(clientId);
+                placeholder.firstChild.innerHTML = renderContactsList(contacts);
+                return;
+            }
+
+            try{
+                const res = await fetch('/api/contacts?client_id=' + encodeURIComponent(clientId));
+                if(!res.ok){ placeholder.firstChild.innerHTML = '<div class="error">Error cargando contactos</div>'; return; }
+                const rows = await res.json();
+                contactsCache.set(clientId, rows);
+                placeholder.firstChild.innerHTML = renderContactsList(rows);
+            }catch(e){ placeholder.firstChild.innerHTML = '<div class="error">No se pudieron cargar contactos</div>'; }
+        }
+
+        function renderContactsList(rows){
+            if(!rows || rows.length===0) return '<div class="small">No hay contactos</div>';
+            let html = '<div class="contacts-list" style="display:flex;flex-direction:column;gap:8px">';
+            rows.forEach(c=>{
+                const id = c.idcontacto || c.id || '';
+                const name = c.name || c.nombre || '';
+                const email = c.email || '';
+                const tel = c.tel || c.telefono || '';
+                html += `<div style="padding:8px;border-radius:8px;background:#fff;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
+                html += `<div style="min-width:36px;color:var(--muted);font-size:13px">${escapeHtml(id)}</div>`;
+                html += `<div style="flex:1">`;
+                html += `<div style="font-weight:600">${escapeHtml(name)}</div>`;
+                html += `<div class="small">${escapeHtml(email)} ${tel?('• ' + escapeHtml(tel)) : ''}</div>`;
+                html += `</div></div>`;
+            });
+            html += '</div>';
+            return html;
+        }
+
+        btnFilter.addEventListener('click', loadClients);
+        btnReload.addEventListener('click', ()=>{ filterName.value=''; loadClients(); });
+
+        // initial load
+        loadClients();
+    </script>
+</body>
+</html>

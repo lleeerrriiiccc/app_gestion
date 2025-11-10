@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Contactos del cliente</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Contactos</div>
+            <div class="small" id="subtitle">Listado</div>
+        </div>
+
+        <section style="margin-top:8px">
+            <div class="table-responsive">
+            <table id="contactsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            </div>
+        </section>
+
+        <div id="message" role="status" aria-live="polite" style="margin-top:10px"></div>
+
+        <div style="margin-top:12px">
+            <button type="button" class="ghost" id="backBtn">Volver</button>
+        </div>
+    </main>
+
+    <script>
+        const tableBody = document.querySelector('#contactsTable tbody');
+        const message = document.getElementById('message');
+        const subtitle = document.getElementById('subtitle');
+        const backBtn = document.getElementById('backBtn');
+
+        function escapeHtml(s){ if (s === null || s === undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+        function getQuery(){ const qp = {}; location.search.substring(1).split('&').forEach(p=>{ if(!p) return; const [k,v]=p.split('='); qp[decodeURIComponent(k)]=decodeURIComponent(v||''); }); return qp; }
+
+        async function loadContacts(){
+            tableBody.innerHTML = '';
+            message.textContent = '';
+            const qp = getQuery();
+            const id = qp.id || qp.client_id || qp.client || '';
+            const name = qp.name || '';
+            subtitle.textContent = name ? `Contactos de ${name}` : 'Contactos';
+            if(!id){ message.className='error'; message.textContent='Cliente no especificado'; return; }
+            try{
+                // Endpoint expected: /api/contacts?client_id=ID
+                const res = await fetch('/api/contacts?client_id=' + encodeURIComponent(id));
+                if(!res.ok){ tableBody.innerHTML = '<tr><td colspan="4">Error cargando contactos</td></tr>'; return; }
+                const rows = await res.json();
+                renderTable(rows);
+            }catch(e){ tableBody.innerHTML = '<tr><td colspan="4">No se pudieron cargar contactos</td></tr>'; }
+        }
+
+        function renderTable(rows){
+            tableBody.innerHTML = '';
+            if(!rows || rows.length===0){ tableBody.innerHTML = '<tr><td colspan="4">No hay contactos</td></tr>'; return; }
+            rows.forEach(r=>{
+                const id = r.idcontacto || r.id || r.contacto_id || '';
+                const name = r.name || r.nombre || '';
+                const email = r.email || '';
+                const tel = r.tel || r.telefono || r.phone || '';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `\n                    <td>${escapeHtml(id)}</td>\n                    <td>${escapeHtml(name)}</td>\n                    <td>${escapeHtml(email)}</td>\n                    <td>${escapeHtml(tel)}</td>\n                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        backBtn.addEventListener('click', ()=> location.href='/clients');
+
+        // initial load
+        loadContacts();
+    </script>
+</body>
+</html>
