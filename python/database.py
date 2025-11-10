@@ -192,15 +192,15 @@ def addresses_info(client_id):
     return results
 
 
-def add_contact(client_id, name, email, tel):
+def add_contact(client_id, name, email, tel, facturas):
     """Insert a new contact into datos_contacto for a client.
     Assumes idcontacto is AUTO_INCREMENT or optional in the schema.
     """
     conn = connect()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO datos_contacto (cliente, name, email, tel) VALUES (%s, %s, %s, %s)",
-        (client_id, name, email, tel)
+        "INSERT INTO datos_contacto (cliente, name, email, tel, facturas) VALUES (%s, %s, %s, %s, %s)",
+        (client_id, name, email, tel, facturas)
     )
     conn.commit()
     cursor.close()
@@ -230,4 +230,3 @@ def add_client(name, nif):
     conn.commit()
     cursor.close()
     conn.close()
-    

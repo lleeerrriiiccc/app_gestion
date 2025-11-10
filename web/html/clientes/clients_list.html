@@ -145,6 +145,8 @@
             html += `<input class="new-contact-name" placeholder="Nombre" style="flex:1;min-width:140px">`;
             html += `<input class="new-contact-email" placeholder="Email" style="flex:1;min-width:160px">`;
             html += `<input class="new-contact-tel" placeholder="Teléfono" style="width:140px">`;
+            html += `<label class="small" style="align-self:center">Facturas</label>`;
+            html += `<input type="checkbox" class="new-contact-facturas" style="width:140px">`;
             html += `<button class="primary add-contact-btn">Añadir</button>`;
             html += `</div></div>`;
 
@@ -173,12 +175,13 @@
                 const name = placeholder.firstChild.querySelector('.new-contact-name').value.trim();
                 const email = placeholder.firstChild.querySelector('.new-contact-email').value.trim();
                 const tel = placeholder.firstChild.querySelector('.new-contact-tel').value.trim();
+                const facturas = placeholder.firstChild.querySelector('.new-contact-facturas').value.trim();
                 if(!name){ alert('Nombre requerido'); return; }
                 try{
                     const res = await fetch('/api/contacts/add', {
                         method:'POST',
                         headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-                        body: new URLSearchParams({client_id: clientId, name, email, tel}).toString()
+                        body: new URLSearchParams({client_id: clientId, name, email, tel, facturas: facturas ? 1 : 0}).toString()
                     });
                     const text = await res.text();
                     if(res.ok){

@@ -201,10 +201,11 @@ def api_contact_add():
     name = request.form.get('name') or request.json and request.json.get('name')
     email = request.form.get('email') or request.json and request.json.get('email')
     tel = request.form.get('tel') or request.json and request.json.get('tel')
+    facturas = request.form.get('facturas')
     if not client_id or not name:
         return ("Missing parameters", 400)
     try:
-        db.add_contact(client_id, name, email, tel)
+        db.add_contact(client_id, name, email, tel, facturas)
         return ("Contact added", 201)
     except Exception as e:
         print('api_contact_add error:', e)
