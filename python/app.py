@@ -179,7 +179,7 @@ def api_contact():
         return ("Missing id", 400)
     return jsonify(db.contact_info(id))
 
-
+# API: addresses info
 @app.route('/api/addresses', methods=['GET'])
 @login_required
 def api_addresses():
@@ -430,6 +430,24 @@ def menu():
 @login_required
 def clients():
     return render_template('clientes/clients_list.html')
+
+#clients add page
+@app.route('/clients/add', methods=['GET', 'POST'])
+@login_required
+def clients_add():
+    if request.method == 'GET':
+        return render_template('clientes/clients_add.html')
+    # POST -> add client
+    name = request.form.get('name')
+    nif = request.form.get('nif')
+    db.check_params([name, nif])
+    if not name:
+        return ("Missing name", 400)
+    try:
+        db.add_client(name, nif)
+        return ("Client added", 201)
+    except Exception as e:
+        return (f"Error adding client: {e}", 500)
 
 
 

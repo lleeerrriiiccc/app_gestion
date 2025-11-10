@@ -218,3 +218,16 @@ def add_address(client_id, direccion, poblacion, codigo_postal, pais):
     conn.commit()
     cursor.close()
     conn.close()
+
+def add_client(name, nif):
+    """Insert a new client into clientes table."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO clientes (name, nif) VALUES (%s, %s)",
+        (name, nif)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    

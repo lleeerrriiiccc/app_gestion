@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Añadir cliente</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--narrow">
+        <div class="module-header">
+            <div class="badge">Clientes</div>
+            <div class="small">Añadir cliente</div>
+        </div>
+
+        <form id="clientForm" style="margin-top:12px">
+            <div>
+                <label for="name">Nombre</label>
+                <input id="name" name="name" type="text" required placeholder="Nombre de la empresa o cliente">
+            </div>
+
+            <div>
+                <label for="nif">NIF</label>
+                <input id="nif" name="nif" type="text" placeholder="NIF del cliente">
+            </div>
+
+            <div class="actions" style="margin-top:10px">
+                <button type="submit" class="primary">Crear cliente</button>
+                <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+            </div>
+
+            <div id="clientMessage" role="status" aria-live="polite" style="margin-top:10px"></div>
+        </form>
+    </main>
+
+    <script>
+    (function(){
+        const form = document.getElementById('clientForm');
+        const msg = document.getElementById('clientMessage');
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        function show(text, cls){ msg.textContent = text; msg.className = cls; }
+
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            show('', '');
+            const name = form.name.value.trim();
+            const nif = form.nif.value.trim();
+            if(!name){ show('El nombre es obligatorio.', 'error'); return; }
+
+            submitBtn.disabled = true;
+            show('Creando cliente…', 'small');
+            try{
+                const res = await fetch('/clients/add', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({name, nif}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){
+                    show(text || 'Cliente creado correctamente.', 'success');
+                    // redirect to clients list after short delay
+                    setTimeout(()=> location.href = '/clients', 900);
+                } else {
+                    show(text || 'Error al crear cliente.', 'error');
+                }
+            }catch(err){
+                console.error(err);
+                show('No se pudo conectar con el servidor.', 'error');
+            } finally { submitBtn.disabled = false; }
+        });
+    })();
+    </script>
+</body>
+</html>

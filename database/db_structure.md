@@ -4,8 +4,8 @@
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
 | name | text | YES |  | None |  |
-| email | text | YES |  | None |  |
 | idcliente | int(11) | NO | MUL | None | auto_increment |
+| nif | int(11) | YES |  | None |  |
 
 ## Tabla: datos_contacto
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
@@ -15,6 +15,7 @@
 | name | text | YES |  | None |  |
 | email | text | YES |  | None |  |
 | tel | int(11) | YES |  | None |  |
+| facturas | int(11) | YES |  | None |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente

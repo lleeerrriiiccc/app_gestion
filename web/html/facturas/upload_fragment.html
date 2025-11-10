@@ -29,6 +29,7 @@
         <div>
             <label for="email">Email</label>
             <input id="email" name="email" type="email" placeholder="cliente@ejemplo.com">
+            <div id="emailSuggestions" class="suggestion-content" style="margin-top:6px"></div>
         </div>
 
         <div style="margin-top:6px">
@@ -131,8 +132,78 @@
 
         suggestionsDiv.addEventListener('click', function(e){
             if (e.target && e.target.classList.contains('suggestion')) {
-                clientInput.value = e.target.textContent;
+                const chosen = e.target.textContent;
+                clientInput.value = chosen;
                 suggestionsDiv.innerHTML = '';
+                // after selecting a client name, fetch client id and contacts to suggest invoice emails
+                tryPopulateInvoiceEmails(chosen);
+            }
+        });
+
+        // Also try populate when client input loses focus and value matches a client
+        clientInput.addEventListener('blur', function(){
+            const val = this.value.trim();
+            if(val) setTimeout(()=> tryPopulateInvoiceEmails(val), 200); // slight delay to allow click
+        });
+
+        const emailSuggestionsDiv = document.getElementById('emailSuggestions');
+
+        function isInvoiceRecipient(contact){
+            // some schemas mark this column as 'facturas' with 1/0 or '1'/'0'
+            if(!contact) return false;
+            const v = contact.facturas ?? contact.factura ?? contact.send_invoices ?? contact.send_invoice;
+            if(v === undefined) return false;
+            return v === 1 || v === '1' || v === 'on' || v === true;
+        }
+
+        async function tryPopulateInvoiceEmails(clientName){
+            if(!clientName) return;
+            try{
+                // first get client record to resolve id
+                const cRes = await fetch('/api/clients?name=' + encodeURIComponent(clientName));
+                if(!cRes.ok) return;
+                const clients = await cRes.json();
+                if(!clients || clients.length === 0) return;
+                const client = clients[0];
+                const clientId = client.idcliente || client.id || client.idCliente || client.ID;
+                if(!clientId) return;
+                // fetch contacts for client
+                const r = await fetch('/api/contacts?client_id=' + encodeURIComponent(clientId));
+                if(!r.ok) return;
+                const contacts = await r.json();
+                // filter contacts marked as invoice recipients and unique emails
+                const emails = [];
+                const seen = new Set();
+                (contacts || []).forEach(ct=>{
+                    const email = ct.email || ct.mail || ct.e_mail || '';
+                    if(!email) return;
+                    if(!isInvoiceRecipient(ct)) return;
+                    if(!seen.has(email)){
+                        seen.add(email);
+                        emails.push({email, name: ct.name || ct.nombre || ''});
+                    }
+                });
+                renderEmailSuggestions(emails);
+            }catch(err){ console.error('populate emails', err); }
+        }
+
+        function renderEmailSuggestions(list){
+            emailSuggestionsDiv.innerHTML = '';
+            if(!list || list.length === 0) return;
+            list.forEach(it=>{
+                const div = document.createElement('div');
+                div.className = 'suggestion';
+                div.textContent = it.email + (it.name ? ' — ' + it.name : '');
+                div.dataset.email = it.email;
+                emailSuggestionsDiv.appendChild(div);
+            });
+        }
+
+        emailSuggestionsDiv.addEventListener('click', function(e){
+            if(e.target && e.target.classList.contains('suggestion')){
+                const email = e.target.dataset.email || e.target.textContent.split(' ')[0];
+                document.getElementById('email').value = email;
+                emailSuggestionsDiv.innerHTML = '';
             }
         });
     })();
