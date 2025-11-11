@@ -274,16 +274,17 @@ def users_delete():
 # Users add
 @app.route('/users/add', methods=['GET', 'POST'])
 def users():
-    if db.privileges(session.get('user', '')) == 1:
-        pass
-    elif db.privileges(session.get('user', '')) == 0:
-        abort(403)
-    else:
-        abort(403)
+    
     # Allow public POST so users can self-register.
     # For GET, require login to view the register module inside the dashboard;
     # if not logged in, redirect to login page.
     if request.method == 'GET':
+        if db.privileges(session.get('user', '')) == 1:
+            pass
+        elif db.privileges(session.get('user', '')) == 0:
+            abort(403)
+        else:
+            abort(403)
         if 'user' not in session:
             return redirect(url_for('login'))
         return render_template('users/user_add.html')
