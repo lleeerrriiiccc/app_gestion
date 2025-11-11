@@ -313,6 +313,9 @@ def users():
 @app.route('/invoices/edit', methods=['GET', 'POST'])
 @login_required
 def invoices_edit():
+
+
+# Clients edit page & update
     if request.method == 'GET':
         return render_template('facturas/invoices_edit.html')
     # POST -> update invoice
@@ -452,7 +455,22 @@ def clients_add():
 
 
 
-
+@app.route('/clients/edit', methods=['GET', 'POST'])
+@login_required
+def clients_edit_page():
+    if request.method == 'GET':
+        return render_template('clientes/clients_edit.html')
+    client_id = request.form.get('id')
+    name = request.form.get('name') 
+    nif = request.form.get('nif')
+    if not client_id or not name:
+        return ("Missing parameters", 400)
+    try:
+        db.update_client(client_id, name, nif)
+        return ("Client updated", 200)
+    except Exception as e:
+        print('clients_edit error:', e)
+        return (f"Error updating client: {e}", 500)
 
 
 

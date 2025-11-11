@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ver / Editar cliente</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Clientes</div>
+            <div class="small">Ver y editar información</div>
+        </div>
+
+        <section>
+            <div class="form-inline">
+                <label class="muted">Seleccionar cliente</label>
+                <select id="clientSelect" style="min-width:320px"></select>
+                <button id="btnLoad" class="primary">Cargar</button>
+                <button id="btnNew" class="ghost">Nuevo</button>
+            </div>
+        </section>
+
+        <form id="editForm" style="margin-top:12px">
+            <input type="hidden" id="clientId" name="id">
+            <div>
+                <label for="name">Nombre</label>
+                <input id="name" name="name" type="text" required>
+            </div>
+            <div>
+                <label for="nif">nif</label>
+                <input id="nif" name="nif" type="text">
+            </div>
+
+            <div class="actions" style="margin-top:10px">
+                <button type="submit" class="primary">Guardar</button>
+                <button type="button" class="ghost" id="btnBack" >Volver</button>
+            </div>
+
+            <div id="msg" role="status" aria-live="polite" style="margin-top:10px"></div>
+        </form>
+
+        <section style="margin-top:18px">
+            <div class="small">Acciones relacionadas</div>
+            <div style="margin-top:8px">
+                <a id="linkContacts" class="ghost" href="#" style="display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none">Ver/Editar contactos</a>
+                <a id="linkAddresses" class="ghost" href="#" style="display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;margin-left:8px">Ver/Editar direcciones</a>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    (function(){
+        const select = document.getElementById('clientSelect');
+        const btnLoad = document.getElementById('btnLoad');
+        const btnNew = document.getElementById('btnNew');
+        const btnBack = document.getElementById('btnBack');
+        const form = document.getElementById('editForm');
+        const msg = document.getElementById('msg');
+        const linkContacts = document.getElementById('linkContacts');
+        const linkAddresses = document.getElementById('linkAddresses');
+
+        function show(text, cls){ msg.textContent = text; msg.className = cls; }
+
+        async function loadClients(){
+            select.innerHTML = '<option value="">Cargando...</option>';
+            try{
+                const res = await fetch('/api/clients');
+                const rows = await res.json();
+                select.innerHTML = '';
+                if(!rows || rows.length === 0){ select.innerHTML = '<option value="">No hay clientes</option>'; return; }
+                rows.forEach(r=>{
+                    const id = r.idcliente || r.id || r.ID || '';
+                    const name = r.name || r.nombre || r.cliente || '';
+                    const opt = document.createElement('option');
+                    opt.value = name; // API expects name parameter
+                    opt.dataset.id = id;
+                    opt.textContent = `${name} ${id ? '('+id+')' : ''}`;
+                    select.appendChild(opt);
+                });
+            }catch(e){ select.innerHTML = '<option value="">Error cargando</option>'; }
+        }
+
+        async function loadClientDetails(name){
+            show('', '');
+            if(!name) return;
+            try{
+                const res = await fetch('/api/clients?name=' + encodeURIComponent(name));
+                if(!res.ok){ show('No se pudo obtener el cliente', 'error'); return; }
+                const rows = await res.json();
+                if(!rows || rows.length === 0){ show('Cliente no encontrado', 'error'); return; }
+                const c = rows[0];
+                const id = c.idcliente || c.id || c.ID || '';
+                document.getElementById('clientId').value = id;
+                document.getElementById('name').value = c.name || c.nombre || '';
+                document.getElementById('nif').value = c.nif || '';
+                // update related links
+                linkContacts.href = '/clients/contacts?id=' + encodeURIComponent(id) + '&name=' + encodeURIComponent(c.name || '');
+                linkAddresses.href = '/clients/contacts?id=' + encodeURIComponent(id) + '&name=' + encodeURIComponent(c.name || '') + '&show=addresses';
+                show('Datos cargados', 'success');
+            }catch(err){ console.error(err); show('Error cargando cliente', 'error'); }
+        }
+
+        btnLoad.addEventListener('click', ()=>{
+            const name = select.value;
+            loadClientDetails(name);
+        });
+
+        btnNew.addEventListener('click', ()=> location.href = '/clients/add');
+        btnBack.addEventListener('click', ()=> location.href = '/dashboard');
+
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            show('', '');
+            const id = document.getElementById('clientId').value;
+            const name = document.getElementById('name').value.trim();
+            const nif = document.getElementById('nif').value.trim();
+            if(!id || !name){ show('Selecciona un cliente y escribe un nombre.', 'error'); return; }
+            try{
+                const res = await fetch('/clients/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                    body: new URLSearchParams({id, name, nif}).toString()
+                });
+                const text = await res.text();
+                if(res.ok){ show(text || 'Cliente actualizado', 'success'); loadClients(); }
+                else show(text || 'Error al actualizar', 'error');
+            }catch(err){ show('No se pudo conectar', 'error'); }
+        });
+
+        // initial
+        loadClients();
+    })();
+    </script>
+</body>
+</html>

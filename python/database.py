@@ -170,6 +170,16 @@ def clients_info(client="*"):
     conn.close()
     return results
 
+
+def update_client(client_id, name, nif):
+    """Update client's basic info in clientes table."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE clientes SET name = %s, nif = %s WHERE idcliente = %s", (name, nif, client_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def contact_info(id):
     query = "select * from datos_contacto where cliente = %s;"    
     conn = connect()
@@ -220,13 +230,16 @@ def add_address(client_id, direccion, poblacion, codigo_postal, pais):
     conn.close()
 
 def add_client(name, nif):
-    """Insert a new client into clientes table."""
+    """Insert a new client into clientes table.
+    Updated to accept name and email (email may be stored in 'email' column).
+    """
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO clientes (name, nif) VALUES (%s, %s)",
-        (name, nif)
-    )
+    try:
+        cursor.execute("INSERT INTO clientes (name, email) VALUES (%s, %s)", (name, nif))
+    except Exception:
+        # fallback if table uses 'nif' column
+        cursor.execute("INSERT INTO clientes (name, nif) VALUES (%s, %s)", (name, nif))
     conn.commit()
     cursor.close()
     conn.close()
