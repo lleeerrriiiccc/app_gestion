@@ -179,6 +179,20 @@ def api_contact():
         return ("Missing id", 400)
     return jsonify(db.contact_info(id))
 
+
+@app.route('/api/contacts/delete', methods=['POST'])
+@login_required
+def api_contact_delete():
+    contact_id = request.form.get('id') or (request.json and request.json.get('id'))
+    if not contact_id:
+        return ("Missing id", 400)
+    try:
+        db.delete_contact(contact_id)
+        return ("Contact deleted", 200)
+    except Exception as e:
+        print('api_contact_delete error:', e)
+        return (f"Error deleting contact: {e}", 500)
+
 @app.route('/api/contacts/update', methods=['POST'])
 @login_required
 def api_contact_update():
@@ -208,6 +222,20 @@ def api_addresses():
     except Exception as e:
         print('api_addresses error:', e)
         return jsonify([])
+
+
+@app.route('/api/addresses/delete', methods=['POST'])
+@login_required
+def api_address_delete():
+    addr_id = request.form.get('id') or (request.json and request.json.get('id'))
+    if not addr_id:
+        return ("Missing id", 400)
+    try:
+        db.delete_address(addr_id)
+        return ("Address deleted", 200)
+    except Exception as e:
+        print('api_address_delete error:', e)
+        return (f"Error deleting address: {e}", 500)
 
 
 # API: add contact for a client

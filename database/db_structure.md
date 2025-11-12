@@ -33,6 +33,13 @@
 ### Relaciones:
 - cliente → clientes.idcliente
 
+## Tabla: departamentos
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| iddept | int(11) | NO | PRI | None | auto_increment |
+| name | text | NO |  | None |  |
+| menu | text | NO |  | '{}' |  |
+
 ## Tabla: facturas
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -45,6 +52,13 @@
 ### Relaciones:
 - cliente → clientes.idcliente
 
+## Tabla: piezas
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idpiezas | int(11) | NO | PRI | None | auto_increment |
+| name | text | YES |  | None |  |
+| ruta_plano | text | YES |  | None |  |
+
 ## Tabla: users
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -52,4 +66,8 @@
 | user | text | YES |  | None |  |
 | pass | text | YES |  | None |  |
 | privilege | int(11) | YES |  | None |  |
+| dept | int(11) | YES | MUL | None |  |
+
+### Relaciones:
+- dept → departamentos.iddept
 

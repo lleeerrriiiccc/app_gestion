@@ -42,13 +42,6 @@
             <div id="msg" role="status" aria-live="polite" style="margin-top:10px"></div>
         </form>
 
-        <section style="margin-top:18px">
-            <div class="small">Acciones relacionadas</div>
-            <div style="margin-top:8px">
-                <a id="linkContacts" class="ghost" href="#" style="display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none">Ver/Editar contactos</a>
-                <a id="linkAddresses" class="ghost" href="#" style="display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;margin-left:8px">Ver/Editar direcciones</a>
-            </div>
-        </section>
     </main>
 
     <script>
@@ -97,8 +90,6 @@
                 document.getElementById('name').value = c.name || c.nombre || '';
                 document.getElementById('nif').value = c.nif || '';
                 // update related links
-                linkContacts.href = '/clients/contacts?id=' + encodeURIComponent(id) + '&name=' + encodeURIComponent(c.name || '');
-                linkAddresses.href = '/clients/contacts?id=' + encodeURIComponent(id) + '&name=' + encodeURIComponent(c.name || '') + '&show=addresses';
                 show('Datos cargados', 'success');
             }catch(err){ console.error(err); show('Error cargando cliente', 'error'); }
         }

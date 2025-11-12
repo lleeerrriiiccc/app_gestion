@@ -249,6 +249,26 @@ def add_client(name, nif):
     cursor.close()
     conn.close()
 
+
+def delete_contact(contact_id):
+    """Delete a contact from datos_contacto by its idcontacto."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM datos_contacto WHERE idcontacto = %s", (contact_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def delete_address(idregistro):
+    """Delete a shipping address from datos_envio by its idregistro."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM datos_envio WHERE idregistro = %s", (idregistro,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def update_contact(contact_id, client_id, name, email, tel, facturas):
     params = (client_id, name, email, tel, facturas, contact_id)
     for p in params:
