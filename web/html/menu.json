@@ -6,9 +6,8 @@
         {"name": "Eliminar factura", "href": "/invoices/delete"}
         ],
         "Gestion de clientes": [
-        {"name": "Ver informacion clientes", "href": "/clients"},
+        {"name": "Ver/editar informacion clientes", "href": "/clients"},
         {"name": "Añadir clientes", "href": "/clients/add"},
-        {"name": "Editar cliente", "href": "/clients/edit"},
         {"name": "Eliminar cliente", "href": "/clients/delete"}
         ]
     },
@@ -24,9 +23,8 @@
         {"name": "Eliminar usuario", "href": "/users/delete"}
         ],
         "Gestion de clientes": [
-        {"name": "Ver informacion clientes", "href": "/clients"},
+        {"name": "Ver/editar informacion clientes", "href": "/clients"},
         {"name": "Añadir clientes", "href": "/clients/add"},
-        {"name": "Editar cliente", "href": "/clients/edit"},
         {"name": "Eliminar cliente", "href": "/clients/delete"}
         ]
     }

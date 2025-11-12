@@ -124,6 +124,7 @@
                 const contacts = contactsCache.get(clientId);
                 placeholder.firstChild.innerHTML = renderContactsList(contacts, clientId);
                 attachAddContactHandler(placeholder, clientId);
+                attachSaveContactsHandler(placeholder, clientId);
                 return;
             }
 
@@ -134,6 +135,7 @@
                 contactsCache.set(clientId, rows);
                 placeholder.firstChild.innerHTML = renderContactsList(rows, clientId);
                 attachAddContactHandler(placeholder, clientId);
+                attachSaveContactsHandler(placeholder, clientId);
             }catch(e){ placeholder.firstChild.innerHTML = '<div class="error">No se pudieron cargar contactos</div>'; }
         }
 
@@ -152,16 +154,25 @@
 
             if(!rows || rows.length===0) return html + '<div class="small">No hay contactos</div>';
             html += '<div class="contacts-list" style="display:flex;flex-direction:column;gap:8px">';
+            // Add a Save button for editing existing contacts
+            html += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                        <button class="primary save-contacts-btn">Guardar cambios</button>
+                        <span class="small muted save-hint">Edita los campos y pulsa Guardar cambios para persistirlos.</span>
+                    </div>`;
             rows.forEach(c=>{
                 const id = c.idcontacto || c.id || '';
                 const name = c.name || c.nombre || '';
                 const email = c.email || '';
                 const tel = c.tel || c.telefono || '';
-                html += `<div style="padding:8px;border-radius:8px;background:#fff;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
+                const facturas = c.facturas ? 1 : 0;
+                // render editable row (inputs) for each contact
+                html += `<div class="contact-item" data-contact-id="${escapeAttr(id)}" style="padding:8px;border-radius:8px;background:#fff;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
                 html += `<div style="min-width:36px;color:var(--muted);font-size:13px">${escapeHtml(id)}</div>`;
-                html += `<div style="flex:1">`;
-                html += `<div style="font-weight:600">${escapeHtml(name)}</div>`;
-                html += `<div class="small">${escapeHtml(email)} ${tel?('• ' + escapeHtml(tel)) : ''}</div>`;
+                html += `<div style="flex:1;display:flex;gap:8px;align-items:center">`;
+                html += `<input class="contact-name" value="${escapeAttr(name)}" style="flex:1;min-width:140px">`;
+                html += `<input class="contact-email" value="${escapeAttr(email)}" style="flex:1;min-width:160px">`;
+                html += `<input class="contact-tel" value="${escapeAttr(tel)}" style="width:140px">`;
+                html += `<label class="small" style="display:flex;align-items:center;gap:6px;margin-left:8px"><input type="checkbox" class="contact-facturas" ${facturas? 'checked' : ''}> Facturas</label>`;
                 html += `</div></div>`;
             });
             html += '</div>';
@@ -192,6 +203,66 @@
                         attachAddContactHandler(placeholder, clientId);
                     } else { alert(text || 'Error'); }
                 }catch(err){ alert('No se pudo conectar'); }
+            });
+        }
+
+        // Attach handler to Save changes button to persist edits of existing contacts.
+        function attachSaveContactsHandler(placeholder, clientId){
+            const saveBtn = placeholder.firstChild.querySelector('.save-contacts-btn');
+            if(!saveBtn) return;
+            // avoid double-binding
+            if(saveBtn.dataset.bound) return; saveBtn.dataset.bound = '1';
+            saveBtn.addEventListener('click', async ()=>{
+                const contactItems = Array.from(placeholder.firstChild.querySelectorAll('.contact-item'));
+                if(contactItems.length === 0){ alert('No hay contactos para guardar'); return; }
+                const updates = [];
+                for(const item of contactItems){
+                    const contactId = item.dataset.contactId || '';
+                    const name = item.querySelector('.contact-name').value.trim();
+                    const email = item.querySelector('.contact-email').value.trim();
+                    const tel = item.querySelector('.contact-tel').value.trim();
+                    const facturas = item.querySelector('.contact-facturas').checked ? 1 : 0;
+                    if(!name){ alert('Nombre requerido para todos los contactos'); return; }
+                    updates.push({contactId, name, email, tel, facturas});
+                }
+
+                const missingEndpoints = new Set();
+                for(const u of updates){
+                    try{
+                        if(!u.contactId){
+                            // new contact -> use existing add endpoint
+                            const res = await fetch('/api/contacts/add', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                                body: new URLSearchParams({client_id: clientId, name: u.name, email: u.email, tel: u.tel, facturas: u.facturas}).toString()
+                            });
+                            if(!res.ok){ const txt = await res.text(); alert('Error añadiendo contacto: ' + (txt||res.status)); return; }
+                        } else {
+                            // existing contact -> attempt update endpoint (likely missing server-side)
+                            const res = await fetch('/api/contacts/update', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/json;charset=UTF-8'},
+                                body: JSON.stringify({id: u.contactId, client_id: clientId, name: u.name, email: u.email, tel: u.tel, facturas: u.facturas})
+                            });
+                            if(res.status === 404){ missingEndpoints.add('/api/contacts/update'); }
+                            else if(!res.ok){ const txt = await res.text(); alert('Error actualizando contacto: ' + (txt||res.status)); return; }
+                        }
+                    }catch(err){ alert('Error de red al guardar contactos'); return; }
+                }
+
+                if(missingEndpoints.size>0){
+                    placeholder.firstChild.insertAdjacentHTML('afterbegin', `<div class="error" style="margin-bottom:8px">El backend no dispone de los endpoints necesarios para actualizar contactos. Falta: ${Array.from(missingEndpoints).join(', ')}. Para finalizar la funcionalidad, crea un endpoint POST /api/contacts/update que acepte JSON {id, client_id, name, email, tel, facturas} y actualice la fila correspondiente en <code>datos_contacto</code>.</div>`);
+                    return;
+                }
+
+                try{
+                    const r2 = await fetch('/api/contacts?client_id=' + encodeURIComponent(clientId));
+                    const updated = await r2.json();
+                    contactsCache.set(clientId, updated);
+                    placeholder.firstChild.innerHTML = renderContactsList(updated, clientId);
+                    attachAddContactHandler(placeholder, clientId);
+                    attachSaveContactsHandler(placeholder, clientId);
+                }catch(err){ alert('No se pudo recargar la lista de contactos'); }
             });
         }
 

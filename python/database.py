@@ -153,7 +153,8 @@ def delete_invoice(invoice_id):
 
 def clients_info(client="*"):
     if client != "*":
-        query = "select * from clientes where name = %s;"    
+        client = client + '%'
+        query = "select * from clientes where name like %s;"    
         conn = connect()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(query, (client,))
@@ -240,6 +241,25 @@ def add_client(name, nif):
     except Exception:
         # fallback if table uses 'nif' column
         cursor.execute("INSERT INTO clientes (name, nif) VALUES (%s, %s)", (name, nif))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def update_contact(contact_id, client_id, name, email, tel, facturas):
+    params = (client_id, name, email, tel, facturas, contact_id)
+    for p in params:
+        print(p)
+        if check_params([p]) is False:
+            raise ValueError("Invalid parameter detected.")
+        elif check_params([p]) is True:
+            continue
+    """Update an existing contact's information in datos_contacto."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE datos_contacto SET name = %s, email = %s, tel = %s, facturas = %s WHERE idcontacto = %s AND cliente = %s",
+        (name, email, tel, facturas, contact_id, client_id)
+    )
     conn.commit()
     cursor.close()
     conn.close()

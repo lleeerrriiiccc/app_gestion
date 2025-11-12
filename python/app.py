@@ -179,6 +179,23 @@ def api_contact():
         return ("Missing id", 400)
     return jsonify(db.contact_info(id))
 
+@app.route('/api/contacts/update', methods=['POST'])
+@login_required
+def api_contact_update():
+    id = request.json.get('id')
+    client_id = request.json.get('client_id')
+    name = request.json.get('name')
+    email = request.json.get('email')
+    tel = request.json.get('tel')
+    facturas = request.json.get('facturas')
+    try:
+        db.update_contact(id, client_id, name, email, tel, facturas)
+        return ("Contact updated", 200)
+    except Exception as e:
+        print('api_contact_update error:', e)
+        return (f"Error updating contact: {e}", 500)
+
+
 # API: addresses info
 @app.route('/api/addresses', methods=['GET'])
 @login_required
@@ -455,7 +472,7 @@ def clients_add():
         return (f"Error adding client: {e}", 500)
 
 
-
+#clients edit page & update 
 @app.route('/clients/edit', methods=['GET', 'POST'])
 @login_required
 def clients_edit_page():
