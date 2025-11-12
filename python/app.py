@@ -452,16 +452,9 @@ def dashboard():
 # Menu endpoint
 @app.route('/menu', methods=['GET'])
 def menu():
-    import json
-    with open(os.path.join(template_dir, 'menu.json'), 'r', encoding='utf-8') as f:
-        menu_data = json.load(f)
-    q = request.args.get('user', '')
-    user = session.get('user', '')
-    if db.privileges(user) == 1:
-        return jsonify(menu_data["admin"])
-    elif db.privileges(user) == 0:
-        return jsonify(menu_data["user"])
-    return abort(403)
+    q = session.get('user', '')
+    menu = db.load_menu(q)
+    return jsonify(menu)
 
 #CLIENT MANAGEMENT
 @app.route('/clients', methods=['GET'])

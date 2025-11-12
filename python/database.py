@@ -1,3 +1,4 @@
+from flask import jsonify
 import mysql as db
 import mysql.connector
 import json
@@ -15,10 +16,13 @@ def connect():
     )
     return connection
 
-def read_data(query):
+def read_data(query, params=None):
     conn = connect()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute(query)
+    if params:
+        cursor.execute(query, params)
+    else:
+        cursor.execute(query)
     results = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -280,3 +284,21 @@ def update_address(address_id, client_id, direccion, poblacion, codigo_postal, p
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def load_menu(user):
+    if check_params([user]) is False:
+        raise ValueError("Invalid department parameter.")
+    dept_query = "SELECT dept FROM users WHERE user = %s"
+    menu_query = "SELECT menu FROM departamentos WHERE iddept = %s"
+    dept = read_data(dept_query, (user,))
+    if not dept:
+        return None
+    dept_id = dept[0]['dept']
+    menu_data = read_data(menu_query, (dept_id,))
+    if not menu_data:
+        return None
+    menu = menu_data[0]['menu']
+    menu = str(menu)
+    menu = json.loads(menu)
+    return menu

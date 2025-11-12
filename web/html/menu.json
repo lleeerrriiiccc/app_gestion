@@ -27,5 +27,9 @@
         {"name": "Añadir clientes", "href": "/clients/add"},
         {"name": "Eliminar cliente", "href": "/clients/delete"}
         ]
+    },
+    "default":{
+        "Gestion de facturas":[],
+        "Gestion de clientes":[]
     }
 }
