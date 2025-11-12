@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pedidos — Nuevo</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:20px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Pedidos</div>
+            <div class="small">Crear nuevo pedido</div>
+        </div>
+
+        <section>
+            <form id="pedidoForm" class="form-grid">
+                <label class="muted">Cliente</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="text" id="clienteInput" name="cliente" autocomplete="off" placeholder="Escribe el nombre del cliente..." />
+                    <button type="button" id="btnClearClient" class="ghost">Limpiar</button>
+                </div>
+                <input type="hidden" id="clienteId" name="cliente_id">
+                <div id="autocompleteList" class="hint"></div>
+
+                <label class="muted">Dirección de envío</label>
+                <select id="direccionSelect" name="direccion_envio">
+                    <option value="">Seleccione un cliente primero</option>
+                </select>
+                
+                <label class="muted">Referencia / Nota</label>
+                <input type="text" id="referencia" name="referencia" placeholder="Referencia interna, PO, etc." />
+
+                <label class="muted">Factura pendiente</label>
+                <select id="facturaPendiente" name="factura_pendiente">
+                    <option value="0">No</option>
+                    <option value="1">Sí</option>
+                </select>
+                
+                <label class="muted">Líneas de pedido</label>
+                <div id="productLines" style="display:flex;flex-direction:column;gap:8px">
+                    <!-- product line templates will be inserted here -->
+                </div>
+                <div style="margin-top:6px">
+                    <button type="button" id="addLineBtn" class="ghost">Añadir línea</button>
+                </div>
+
+                <div style="grid-column:1/-1;margin-top:12px;display:flex;gap:8px;align-items:center">
+                    <button type="submit" class="primary">Crear pedido</button>
+                    <button type="button" id="cancelBtn" class="ghost">Cancelar</button>
+                    <div id="result" class="hint" style="margin-left:8px"></div>
+                </div>
+            </form>
+        </section>
+
+    </main>
+
+    <script>
+// Autocomplete for clients using /api/clients endpoint
+let clienteInput = document.getElementById('clienteInput');
+let clienteIdInput = document.getElementById('clienteId');
+let autocompleteList = document.getElementById('autocompleteList');
+let direccionSelect = document.getElementById('direccionSelect');
+let pedidoForm = document.getElementById('pedidoForm');
+let resultDiv = document.getElementById('result');
+let selectedClient = null;
+let debounceTimer = null;
+let productDebounce = null;
+
+clienteInput.addEventListener('input', function(e){
+    let q = clienteInput.value.trim();
+    clienteIdInput.value = '';
+    selectedClient = null;
+    direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>';
+    resultDiv.textContent = '';
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (!q){ autocompleteList.textContent = ''; return; }
+    debounceTimer = setTimeout(()=>{
+        fetch('/api/clients?name=' + encodeURIComponent(q))
+            .then(r=>r.json())
+            .then(list=>{
+                renderAutocomplete(list);
+            }).catch(()=>{ autocompleteList.textContent = ''; });
+    }, 250);
+});
+
+function renderAutocomplete(list){
+    if (!Array.isArray(list) || list.length===0){ autocompleteList.textContent = 'Sin resultados'; return; }
+    autocompleteList.innerHTML = '';
+    let ul = document.createElement('ul');
+    ul.style.listStyle='none'; ul.style.padding=0; ul.style.margin='6px 0';
+    list.forEach(item=>{
+        // item may be a string (name) or object {id, name}
+        let li = document.createElement('li');
+        li.style.padding='6px 8px'; li.style.border='1px solid #eee'; li.style.cursor='pointer'; li.style.marginTop='4px';
+        let name = typeof item === 'string' ? item : (item.name || item.user || item.client || '');
+        li.textContent = name;
+        li.addEventListener('click', ()=>selectClient(item));
+        ul.appendChild(li);
+    });
+    autocompleteList.appendChild(ul);
+}
+
+function selectClient(item){
+    let id = item.id || item.idcliente || item.value || null;
+    let name = typeof item === 'string' ? item : (item.name || item.user || item.client || '');
+    clienteInput.value = name;
+    clienteIdInput.value = id || '';
+    autocompleteList.textContent = '';
+    selectedClient = {id, name};
+    loadAddresses(id);
+}
+
+document.getElementById('btnClearClient').addEventListener('click', ()=>{
+    clienteInput.value = '';
+    clienteIdInput.value = '';
+    autocompleteList.textContent = '';
+    direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>';
+    resultDiv.textContent = '';
+});
+
+function loadAddresses(clientId){
+    if (!clientId){ direccionSelect.innerHTML = '<option value="">Cliente sin id</option>'; return; }
+    fetch('/api/addresses?client_id=' + encodeURIComponent(clientId))
+        .then(r=>{
+            if (!r.ok) throw new Error('no ok');
+            return r.json();
+        })
+        .then(list=>{
+            direccionSelect.innerHTML = '';
+            if (!Array.isArray(list) || list.length===0){
+                direccionSelect.innerHTML = '<option value="">No hay direcciones para este cliente</option>';
+                return;
+            }
+            list.forEach(addr=>{
+                // expect fields: idregistro OR id, direccion OR direccion, poblacion, codigo_postal, pais
+                let id = addr.idregistro || addr.id || addr[0] || '';
+                let direccion = addr.direccion || addr.direccion_envio || addr.address || '';
+                let poblacion = addr.poblacion || '';
+                let cp = addr.codigo_postal || addr.codigo_postal || '';
+                let pais = addr.pais || '';
+                let label = direccion + (poblacion?(', '+poblacion):'') + (cp?(' - '+cp):'') + (pais?(', '+pais):'');
+                let opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = label;
+                direccionSelect.appendChild(opt);
+            });
+        }).catch(()=>{
+            direccionSelect.innerHTML = '<option value="">Error cargando direcciones</option>';
+        });
+}
+
+// Product lines management
+const productLines = document.getElementById('productLines');
+const addLineBtn = document.getElementById('addLineBtn');
+
+function makeLine(){
+    const wrapper = document.createElement('div');
+    wrapper.className = 'product-line';
+    wrapper.style.display = 'flex';
+    wrapper.style.gap = '8px';
+    wrapper.style.position = 'relative';
+
+    const prodInput = document.createElement('input');
+    prodInput.type = 'text'; prodInput.placeholder = 'Producto...'; prodInput.className = 'prod-name'; prodInput.style.flex = '1';
+    const prodId = document.createElement('input'); prodId.type='hidden'; prodId.className='prod-id';
+    const qty = document.createElement('input'); qty.type='number'; qty.min='1'; qty.value='1'; qty.className='prod-qty'; qty.style.width='90px';
+    const remove = document.createElement('button'); remove.type='button'; remove.className='ghost'; remove.textContent='Eliminar';
+
+    wrapper.appendChild(prodInput);
+    wrapper.appendChild(prodId);
+    wrapper.appendChild(qty);
+    wrapper.appendChild(remove);
+
+    // autocomplete for product name with keyboard navigation
+    prodInput.addEventListener('input', ()=>{
+        const q = prodInput.value.trim();
+        prodId.value = '';
+        if(productDebounce) clearTimeout(productDebounce);
+        if(!q){ if(prodInput._suggestionBox) prodInput._suggestionBox.remove(); return; }
+        productDebounce = setTimeout(()=>{
+            fetch('/api/products?q=' + encodeURIComponent(q))
+                .then(r=>r.json()).then(list=>{
+                    showProductSuggestions(list, prodInput, prodId, wrapper);
+                }).catch(()=>{});
+        }, 200);
+    });
+
+    prodInput.addEventListener('keydown', (ev)=>{
+        const box = prodInput._suggestionBox;
+        if(!box) return;
+        const items = Array.from(box.querySelectorAll('.sug-item'));
+        let idx = prodInput._sugIndex || 0;
+        if(ev.key === 'ArrowDown'){
+            ev.preventDefault(); idx = Math.min(items.length-1, idx+1);
+            items.forEach(i=> i.style.background=''); items[idx].style.background='#eef'; prodInput._sugIndex = idx;
+        } else if(ev.key === 'ArrowUp'){
+            ev.preventDefault(); idx = Math.max(0, idx-1);
+            items.forEach(i=> i.style.background=''); items[idx].style.background='#eef'; prodInput._sugIndex = idx;
+        } else if(ev.key === 'Enter'){
+            ev.preventDefault(); if(items[idx]) items[idx].click();
+        } else if(ev.key === 'Escape'){
+            box.remove();
+        }
+    });
+
+    remove.addEventListener('click', ()=> wrapper.remove());
+    return wrapper;
+}
+
+function showProductSuggestions(list, inputEl, idEl){
+    // enhanced suggestion box positioned inside the wrapper
+    let box = inputEl._suggestionBox;
+    if(box) box.remove();
+    if(!Array.isArray(list) || list.length===0) return;
+    box = document.createElement('div');
+    box.style.position='absolute';
+    box.style.background='#fff';
+    box.style.border='1px solid #ddd';
+    box.style.zIndex=9999;
+    box.style.maxHeight='240px';
+    box.style.overflow='auto';
+    box.style.left = '0px';
+    box.style.top = (inputEl.offsetTop + inputEl.offsetHeight + 4) + 'px';
+    box.style.minWidth = inputEl.offsetWidth + 'px';
+    box.style.boxShadow = '0 4px 8px rgba(0,0,0,0.08)';
+    box.style.padding = '4px';
+
+    list.forEach((p, i)=>{
+        const item = document.createElement('div');
+        item.className = 'sug-item';
+        item.style.padding='6px';
+        item.style.cursor='pointer';
+        item.style.borderRadius='4px';
+        item.textContent = p.nombre + (p.codigo?(' — '+p.codigo):'') + (p.precio?(' — '+p.precio+'€'): '');
+        item.addEventListener('click', ()=>{
+            inputEl.value = p.nombre;
+            idEl.value = p.idproducto;
+            if(inputEl._suggestionBox) inputEl._suggestionBox.remove();
+            inputEl._sugIndex = 0;
+        });
+        item.addEventListener('mouseover', ()=>{
+            Array.from(box.querySelectorAll('.sug-item')).forEach(x=> x.style.background='');
+            item.style.background='#eef';
+            inputEl._sugIndex = i;
+        });
+        box.appendChild(item);
+    });
+
+    inputEl._suggestionBox = box;
+    // attach box to wrapper (wrapper is inputEl.parentElement when created in makeLine)
+    const attachTo = inputEl.parentElement || document.body;
+    attachTo.appendChild(box);
+
+    // remove on outside click
+    const outsideHandler = (ev)=>{
+        if(!box.contains(ev.target) && ev.target !== inputEl){
+            if(inputEl._suggestionBox) inputEl._suggestionBox.remove();
+            document.removeEventListener('click', outsideHandler);
+        }
+    };
+    setTimeout(()=> document.addEventListener('click', outsideHandler), 0);
+}
+
+addLineBtn.addEventListener('click', ()=>{
+    const line = makeLine();
+    productLines.appendChild(line);
+});
+
+pedidoForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    resultDiv.textContent = '';
+    let clientId = clienteIdInput.value || '';
+    if (!clientId){ resultDiv.textContent = 'Selecciona primero un cliente de la lista.'; return; }
+    let direccion = direccionSelect.value || '';
+    if (!direccion){ resultDiv.textContent = 'Selecciona una dirección de envío.'; return; }
+
+    // Build payload as JSON, including product lines
+    const payload = {
+        cliente: clientId,
+        direccion_envio: direccion,
+        referencia: document.getElementById('referencia') ? document.getElementById('referencia').value : '',
+        factura_pendiente: document.getElementById('facturaPendiente') ? document.getElementById('facturaPendiente').value : 0,
+        lines: []
+    };
+    // gather lines
+    Array.from(document.querySelectorAll('.product-line')).forEach(line=>{
+        const prodId = line.querySelector('.prod-id').value;
+        const qty = line.querySelector('.prod-qty').value;
+        if(prodId){ payload.lines.push({producto: prodId, cantidad: qty}); }
+    });
+
+    fetch('/pedidos/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)})
+        .then(r=>{
+            if (r.ok) return r.text().then(t=>({ok:true, text:t}));
+            return r.text().then(t=>({ok:false, text:t}));
+        }).then(obj=>{
+            if (obj.ok){ resultDiv.textContent = 'Pedido creado correctamente.'; pedidoForm.reset(); direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>'; }
+            else { resultDiv.textContent = 'Error creando pedido: ' + obj.text; }
+        }).catch(err=>{ resultDiv.textContent = 'Error de conexión: ' + err; });
+});
+
+document.getElementById('cancelBtn').addEventListener('click', ()=>{ window.location.href = '/dashboard'; });
+</script>
+</body>
+</html>

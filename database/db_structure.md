@@ -40,6 +40,16 @@
 | name | text | NO |  | None |  |
 | menu | text | NO |  | '{}' |  |
 
+## Tabla: despiece_productos
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| producto | int(11) | NO | PRI | None |  |
+| pieza | int(11) | NO | PRI | None |  |
+
+### Relaciones:
+- pieza → piezas.idpiezas
+- producto → producto.idproducto
+
 ## Tabla: facturas
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -52,12 +62,46 @@
 ### Relaciones:
 - cliente → clientes.idcliente
 
+## Tabla: linias_pedido
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idlinia | int(11) | NO | PRI | None | auto_increment |
+| pedido | int(11) | NO | MUL | None |  |
+| producto | int(11) | YES | MUL | None |  |
+| cantidad | int(11) | YES |  | None |  |
+
+### Relaciones:
+- pedido → pedidos.idpedido
+- producto → producto.idproducto
+
+## Tabla: pedidos
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idpedido | int(11) | NO | PRI | None | auto_increment |
+| cliente | int(11) | NO | MUL | 0 |  |
+| direccion_envio | int(11) | NO |  | 0 |  |
+
+### Relaciones:
+- cliente → clientes.idcliente
+- cliente → datos_envio.cliente
+- direccion_envio → datos_envio.idregistro
+
 ## Tabla: piezas
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
 | idpiezas | int(11) | NO | PRI | None | auto_increment |
 | name | text | YES |  | None |  |
-| ruta_plano | text | YES |  | None |  |
+| codigo | text | YES |  | None |  |
+
+## Tabla: producto
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idproducto | int(11) | NO | PRI | None | auto_increment |
+| material | int(11) | YES |  | 0 |  |
+| descripcion | text | YES |  | None |  |
+| nombre | text | YES |  | None |  |
+| codigo | text | YES |  | None |  |
+| precio | int(11) | YES |  | None |  |
 
 ## Tabla: users
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |

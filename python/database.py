@@ -322,3 +322,43 @@ def load_menu(user):
     menu = str(menu)
     menu = json.loads(menu)
     return menu
+
+
+def add_pedido(cliente_id, direccion_envio):
+    """Insert a new pedido and return its id."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO pedidos (cliente, direccion_envio) VALUES (%s, %s)", (cliente_id, direccion_envio))
+    conn.commit()
+    pedido_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return pedido_id
+
+
+def add_linea_pedido(pedido_id, producto_id, cantidad):
+    """Insert a new line into linias_pedido."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO linias_pedido (pedido, producto, cantidad) VALUES (%s, %s, %s)", (pedido_id, producto_id, cantidad))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def products_list(q='*'):
+    """Return list of products. If q provided, performs a LIKE search on `nombre`."""
+    conn = connect()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        if q and q != '*':
+            term = q + '%'
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio FROM producto WHERE nombre LIKE %s LIMIT 200", (term,))
+        else:
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio FROM producto LIMIT 200")
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+    return rows
+

@@ -224,6 +224,18 @@ def api_addresses():
         return jsonify([])
 
 
+@app.route('/api/products', methods=['GET'])
+@login_required
+def api_products():
+    q = request.args.get('q', '*')
+    try:
+        prods = db.products_list(q)
+        return jsonify(prods)
+    except Exception as e:
+        print('api_products error:', e)
+        return jsonify([])
+
+
 @app.route('/api/addresses/delete', methods=['POST'])
 @login_required
 def api_address_delete():
@@ -526,6 +538,28 @@ def clients_edit_page():
     except Exception as e:
         print('clients_edit error:', e)
         return (f"Error updating client: {e}", 500)
+
+#PEDIDOS MANAGEMENT
+@app.route('/pedidos/add', methods=['GET', 'POST'])
+@login_required
+def pedidos():
+    if request.method == 'GET':
+        return render_template('pedidos/pedidos_add.html')
+    # POST -> add pedido
+    client = request.json.get('cliente')
+    direccion = request.json.get('direccion_envio')
+    lines = request.json.get('lines')  # Expecting a list of dicts with 'producto' and 'cantidad'
+    if not client or not direccion or not lines:
+        return ("Missing parameters", 400)
+    try:
+        pedido = db.add_pedido(client, direccion)
+        for i in lines:
+            db.add_linea_pedido(pedido, i['producto'], i['cantidad'])
+        return ("Pedido added", 201)
+    except Exception as e:
+        print('pedidos_add error:', e)
+        return (f"Error adding pedido: {e}", 500)
+
 
 
 
