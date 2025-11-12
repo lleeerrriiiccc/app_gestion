@@ -248,7 +248,6 @@ def add_client(name, nif):
 def update_contact(contact_id, client_id, name, email, tel, facturas):
     params = (client_id, name, email, tel, facturas, contact_id)
     for p in params:
-        print(p)
         if check_params([p]) is False:
             raise ValueError("Invalid parameter detected.")
         elif check_params([p]) is True:
@@ -259,6 +258,24 @@ def update_contact(contact_id, client_id, name, email, tel, facturas):
     cursor.execute(
         "UPDATE datos_contacto SET name = %s, email = %s, tel = %s, facturas = %s WHERE idcontacto = %s AND cliente = %s",
         (name, email, tel, facturas, contact_id, client_id)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def update_address(address_id, client_id, direccion, poblacion, codigo_postal, pais):
+    params = (client_id, direccion, poblacion, codigo_postal, pais, address_id)
+    for p in params:
+        if check_params([p]) is False:
+            raise ValueError("Invalid parameter detected.")
+        elif check_params([p]) is True:
+            continue
+    """Update an existing contact's information in datos_contacto."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE datos_envio SET direccion = %s, poblacion = %s, codigo_postal = %s, pais = %s WHERE idregistro = %s AND cliente = %s",
+        (direccion, poblacion, codigo_postal, pais, address_id, client_id)
     )
     conn.commit()
     cursor.close()

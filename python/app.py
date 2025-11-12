@@ -246,6 +246,22 @@ def api_address_add():
     except Exception as e:
         print('api_address_add error:', e)
         return (f"Error adding address: {e}", 500)
+    
+@app.route('/api/addresses/update', methods=['POST'])
+@login_required
+def api_address_update():
+    id = request.json.get('id')
+    client_id = request.json.get('client_id')
+    direccion = request.json.get('direccion')
+    poblacion = request.json.get('poblacion')
+    codigo_postal = request.json.get('codigo_postal')
+    pais = request.json.get('pais')
+    try:
+        db.update_address(id, client_id, direccion, poblacion, codigo_postal, pais)
+        return ("Address updated", 200)
+    except Exception as e:
+        print('api_address_update error:', e)
+        return (f"Error updating address: {e}", 500)
 
 #USER MANAGEMENT
 # Users edit (change password)

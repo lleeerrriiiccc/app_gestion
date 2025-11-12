@@ -285,6 +285,7 @@
             if(addressesCache.has(clientId)){
                 placeholder.firstChild.innerHTML = renderAddressesList(addressesCache.get(clientId));
                 attachAddAddressHandler(placeholder, clientId);
+                attachSaveAddressesHandler(placeholder, clientId);
                 return;
             }
             try{
@@ -294,6 +295,7 @@
                 addressesCache.set(clientId, rows);
                 placeholder.firstChild.innerHTML = renderAddressesList(rows);
                 attachAddAddressHandler(placeholder, clientId);
+                attachSaveAddressesHandler(placeholder, clientId);
             }catch(e){ placeholder.firstChild.innerHTML = '<div class="error">No se pudieron cargar direcciones</div>'; }
         }
 
@@ -310,17 +312,27 @@
             html += `</div></div>`;
 
             if(!rows || rows.length===0) return html + '<div class="small">No hay direcciones de envío</div>';
+            // render editable address list with a Save button
             let listHtml = '<div class="addresses-list" style="display:flex;flex-direction:column;gap:8px">';
+            listHtml += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                            <button class="primary save-addresses-btn">Guardar cambios</button>
+                            <span class="small muted save-hint">Edita los campos y pulsa Guardar cambios para persistirlos.</span>
+                        </div>`;
             rows.forEach(a=>{
-                const id = a.idregistro || a.idregistro || a.id || '';
+                const id = a.idregistro || a.id || '';
                 const poblacion = a.poblacion || a.city || '';
                 const direccion = a.direccion || a.address || '';
                 const cp = a.codigo_postal || a.codigo || '';
                 const pais = a.pais || a.country || '';
-                listHtml += `<div style="padding:8px;border-radius:8px;background:#fff;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
-                listHtml += `<div style="font-weight:600">${escapeHtml(direccion)}</div>`;
-                listHtml += `<div class="small">${escapeHtml(poblacion)} ${cp?('• ' + escapeHtml(cp)) : ''} ${pais?('• ' + escapeHtml(pais)) : ''}</div>`;
-                listHtml += `</div>`;
+                listHtml += `<div class="addr-item" data-addr-id="${escapeAttr(id)}" style="padding:8px;border-radius:8px;background:#fff;display:flex;gap:12px;align-items:flex-start;box-shadow:0 1px 2px rgba(0,0,0,0.04)">`;
+                listHtml += `<div style="min-width:36px;color:var(--muted);font-size:13px">${escapeHtml(id)}</div>`;
+                listHtml += `<div style="flex:1;display:flex;flex-direction:column;gap:6px">`;
+                listHtml += `<input class="addr-direccion" value="${escapeAttr(direccion)}" placeholder="Dirección" style="width:100%">`;
+                listHtml += `<div style="display:flex;gap:8px">`;
+                listHtml += `<input class="addr-poblacion" value="${escapeAttr(poblacion)}" placeholder="Población" style="flex:1">`;
+                listHtml += `<input class="addr-cp" value="${escapeAttr(cp)}" placeholder="C.P." style="width:100px">`;
+                listHtml += `<input class="addr-pais" value="${escapeAttr(pais)}" placeholder="País" style="width:120px">`;
+                listHtml += `</div></div></div>`;
             });
             listHtml += '</div>';
             return html + listHtml;
@@ -348,8 +360,68 @@
                         addressesCache.set(clientId, updated);
                         placeholder.firstChild.innerHTML = renderAddressesList(updated);
                         attachAddAddressHandler(placeholder, clientId);
+                        attachSaveAddressesHandler(placeholder, clientId);
                     } else { alert(text || 'Error'); }
                 }catch(err){ alert('No se pudo conectar'); }
+            });
+        }
+
+        // Attach handler to Save changes button to persist edits of existing addresses.
+        function attachSaveAddressesHandler(placeholder, clientId){
+            const saveBtn = placeholder.firstChild.querySelector('.save-addresses-btn');
+            if(!saveBtn) return;
+            if(saveBtn.dataset.bound) return; saveBtn.dataset.bound = '1';
+            saveBtn.addEventListener('click', async ()=>{
+                const addrItems = Array.from(placeholder.firstChild.querySelectorAll('.addr-item'));
+                if(addrItems.length === 0){ alert('No hay direcciones para guardar'); return; }
+                const updates = [];
+                for(const item of addrItems){
+                    const addrId = item.dataset.addrId || '';
+                    const direccion = item.querySelector('.addr-direccion').value.trim();
+                    const poblacion = item.querySelector('.addr-poblacion').value.trim();
+                    const codigo_postal = item.querySelector('.addr-cp').value.trim();
+                    const pais = item.querySelector('.addr-pais').value.trim();
+                    if(!direccion){ alert('Dirección requerida para todas las entradas'); return; }
+                    updates.push({addrId, direccion, poblacion, codigo_postal, pais});
+                }
+
+                const missingEndpoints = new Set();
+                for(const u of updates){
+                    try{
+                        if(!u.addrId){
+                            // new address -> use existing add endpoint
+                            const res = await fetch('/api/addresses/add', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+                                body: new URLSearchParams({client_id: clientId, direccion: u.direccion, poblacion: u.poblacion, codigo_postal: u.codigo_postal, pais: u.pais}).toString()
+                            });
+                            if(!res.ok){ const txt = await res.text(); alert('Error añadiendo dirección: ' + (txt||res.status)); return; }
+                        } else {
+                            // existing address -> attempt update endpoint
+                            const res = await fetch('/api/addresses/update', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/json;charset=UTF-8'},
+                                body: JSON.stringify({id: u.addrId, client_id: clientId, direccion: u.direccion, poblacion: u.poblacion, codigo_postal: u.codigo_postal, pais: u.pais})
+                            });
+                            if(res.status === 404){ missingEndpoints.add('/api/addresses/update'); }
+                            else if(!res.ok){ const txt = await res.text(); alert('Error actualizando dirección: ' + (txt||res.status)); return; }
+                        }
+                    }catch(err){ alert('Error de red al guardar direcciones'); return; }
+                }
+
+                if(missingEndpoints.size>0){
+                    placeholder.firstChild.insertAdjacentHTML('afterbegin', `<div class="error" style="margin-bottom:8px">El backend no dispone de los endpoints necesarios para actualizar direcciones. Falta: ${Array.from(missingEndpoints).join(', ')}. Para finalizar la funcionalidad, crea un endpoint POST /api/addresses/update que acepte JSON {id, client_id, direccion, poblacion, codigo_postal, pais} y actualice la fila correspondiente en <code>datos_envio</code>.</div>`);
+                    return;
+                }
+
+                try{
+                    const r2 = await fetch('/api/addresses?client_id=' + encodeURIComponent(clientId));
+                    const updated = await r2.json();
+                    addressesCache.set(clientId, updated);
+                    placeholder.firstChild.innerHTML = renderAddressesList(updated);
+                    attachAddAddressHandler(placeholder, clientId);
+                    attachSaveAddressesHandler(placeholder, clientId);
+                }catch(err){ alert('No se pudo recargar la lista de direcciones'); }
             });
         }
 
