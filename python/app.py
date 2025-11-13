@@ -302,6 +302,13 @@ def api_address_update():
     except Exception as e:
         print('api_address_update error:', e)
         return (f"Error updating address: {e}", 500)
+    
+@app.route('/api/pedidos', methods=['GET'])
+@login_required
+def api_pedidos():
+    client_id = request.args.get('client_id')
+    pedidos = db.list_pedidos(client_id)
+    return jsonify(pedidos)
 
 #USER MANAGEMENT
 # Users edit (change password)
@@ -540,6 +547,14 @@ def clients_edit_page():
         return (f"Error updating client: {e}", 500)
 
 #PEDIDOS MANAGEMENT
+
+#listar pedidos
+@app.route('/pedidos', methods=['GET'])
+@login_required
+def pedidos_list():
+    return render_template('pedidos/pedidos_list.html')
+
+#Añadir pedidos
 @app.route('/pedidos/add', methods=['GET', 'POST'])
 @login_required
 def pedidos():

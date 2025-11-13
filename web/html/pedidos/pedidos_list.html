@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pedidos — Listado</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:24px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Pedidos</div>
+            <div class="small">Listado y filtrado de pedidos</div>
+        </div>
+
+        <section>
+            <div class="form-inline">
+                <label class="muted">Cliente</label>
+                <select id="filterClient" style="min-width:260px"><option value="">Todos</option></select>
+                <label class="muted">Fecha de producción</label>
+                <input id="filterDate" type="date" />
+                <button id="btnFilter" class="primary">Filtrar</button>
+                <button id="btnClear" class="ghost">Limpiar</button>
+            </div>
+        </section>
+
+        <section style="margin-top:12px">
+            <div id="notice" class="hint" style="margin-bottom:10px"></div>
+            <div class="table-responsive">
+                <table id="pedidosTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Fecha producción</th>
+                            <th>Estado</th>
+                            <th>Asignado a</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <div style="margin-top:12px">
+            <button type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
+        </div>
+    </main>
+
+    <script>
+    (function(){
+        const clientSelect = document.getElementById('filterClient');
+        const dateInput = document.getElementById('filterDate');
+        const btnFilter = document.getElementById('btnFilter');
+        const btnClear = document.getElementById('btnClear');
+        const notice = document.getElementById('notice');
+        const tbody = document.querySelector('#pedidosTable tbody');
+
+        function escapeHtml(s){ if (s === null || s === undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+        async function loadClients(){
+            clientSelect.innerHTML = '<option value="">Todos</option>';
+            try{
+                const res = await fetch('/api/clients');
+                if(!res.ok) return;
+                const rows = await res.json();
+                rows.forEach(r=>{
+                    const id = r.idcliente || r.id || r.ID || '';
+                    const name = r.name || r.nombre || '';
+                    const opt = document.createElement('option');
+                    opt.value = id || name;
+                    opt.textContent = `${name}${id? (' ('+id+')') : ''}`;
+                    clientSelect.appendChild(opt);
+                });
+            }catch(e){ console.error(e); }
+        }
+
+        async function loadPedidos(){
+            tbody.innerHTML = '';
+            notice.textContent = '';
+            try{
+                const params = new URLSearchParams();
+                const client = clientSelect.value;
+                const date = dateInput.value;
+                if(client) params.set('client_id', client);
+                if(date) params.set('production_date', date);
+
+                // Attempt to call backend pedidos endpoint (may not exist yet)
+                const res = await fetch('/api/pedidos?' + params.toString());
+                if(!res.ok){
+                    // show useful instructions for missing endpoint
+                    showMissingPedidosEndpoint(res.status);
+                    return;
+                }
+                const rows = await res.json();
+                if(!rows || rows.length === 0){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay pedidos</td></tr>'; return; }
+                rows.forEach(p=>{
+                    const cliente_id = p.cliente_id || '';
+                    const id = p.idpedido || p.id || p.ID || '';
+                    const cliente = p.cliente_name || p.cliente || p.nombre_cliente || '';
+                    const fecha = p.fecha_produccion || p.production_date || p.fecha || '';
+                    const estado = p.estado || p.status || '';
+                    const assigned = p.assigned_to || p.employee || '';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(id)}</td>
+                        <td>${escapeHtml(cliente)}</td>
+                        <td>${escapeHtml(fecha)}</td>
+                        <td>${escapeHtml(estado)}</td>
+                        <td>${escapeHtml(assigned)}</td>
+                        <td><button class="ghost view-pedido" data-id="${escapeHtml(id)}">Ver</button>
+                            <button class="ghost assign-pedido" data-id="${escapeHtml(id)}">Asignar</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }catch(err){
+                console.error(err);
+                notice.textContent = 'Error cargando pedidos (comprueba el endpoint /api/pedidos).';
+            }
+        }
+
+        function showMissingPedidosEndpoint(status){
+            notice.innerHTML = `No se pudo obtener pedidos (status ${status}).<br>
+            Backend requerido: <code>GET /api/pedidos</code> que acepte parámetros opcionales <code>client</code> y <code>production_date</code> y devuelva JSON array de pedidos con al menos { idpedido, cliente_name, fecha_produccion, estado, assigned_to }.<br>
+            Opcionalmente añade: <code>POST /api/pedidos/assign</code> (payload JSON { id, employee_id }) para asignar pedidos a empleados, y <code>GET /api/pedidos/&lt;id&gt;</code> para ver detalles.
+            `;
+        }
+
+        // Event delegation for view/assign buttons
+        document.addEventListener('click', async (ev)=>{
+            const view = ev.target.closest && ev.target.closest('.view-pedido');
+            if(view){
+                const id = view.getAttribute('data-id');
+                alert('Implementa /api/pedidos/<id> para ver detalles. Pedido: ' + id);
+                return;
+            }
+            const assign = ev.target.closest && ev.target.closest('.assign-pedido');
+            if(assign){
+                const id = assign.getAttribute('data-id');
+                const emp = prompt('ID empleado para asignar este pedido:');
+                if(!emp) return;
+                try{
+                    const res = await fetch('/api/pedidos/assign', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json;charset=UTF-8'},
+                        body: JSON.stringify({id, employee_id: emp})
+                    });
+                    if(!res.ok){ const txt = await res.text(); alert('Error asignando pedido: ' + (txt||res.status)); return; }
+                    alert('Pedido asignado');
+                    loadPedidos();
+                }catch(err){ alert('Error de red al asignar'); }
+            }
+        });
+
+        btnFilter.addEventListener('click', loadPedidos);
+        btnClear.addEventListener('click', ()=>{ clientSelect.value=''; dateInput.value=''; loadPedidos(); });
+
+        // initial
+        loadClients().then(loadPedidos);
+    })();
+    </script>
+</body>
+</html>

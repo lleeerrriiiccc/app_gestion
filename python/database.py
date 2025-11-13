@@ -362,3 +362,32 @@ def products_list(q='*'):
         conn.close()
     return rows
 
+def list_pedidos(cliente_id):
+    if cliente_id:
+        """Return list of pedidos with client names."""
+        query = """
+        SELECT 
+        pedidos.idpedido, 
+        clientes.name AS cliente, 
+        pedidos.direccion_envio, 
+        pedidos.cliente AS cliente_id
+        FROM pedidos
+        INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+        WHERE pedidos.cliente = %s
+        LIMIT 500;
+        """
+        results = read_data(query, (cliente_id,))
+    else:
+        query = """
+        SELECT 
+        pedidos.idpedido, 
+        clientes.name AS cliente, 
+        pedidos.direccion_envio, 
+        pedidos.cliente AS cliente_id
+        FROM pedidos
+        INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+        LIMIT 500;
+        """
+        results = read_data(query)
+    return results
+
