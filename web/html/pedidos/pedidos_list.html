@@ -20,6 +20,13 @@
                 <select id="filterClient" style="min-width:260px"><option value="">Todos</option></select>
                 <label class="muted">Fecha de producción</label>
                 <input id="filterDate" type="date" />
+                <label class="muted">Estado</label>
+                <select id="filterState">
+                    <option value="">Todos</option>
+                    <option value="0">Pendiente</option>
+                    <option value="1">En proceso</option>
+                    <option value="2">Completado</option>
+                </select>
                 <button id="btnFilter" class="primary">Filtrar</button>
                 <button id="btnClear" class="ghost">Limpiar</button>
             </div>
@@ -84,8 +91,10 @@
                 const params = new URLSearchParams();
                 const client = clientSelect.value;
                 const date = dateInput.value;
+                const state = document.getElementById('filterState').value;
                 if(client) params.set('client_id', client);
                 if(date) params.set('production_date', date);
+                if(state !== '') params.set('estado', state);
 
                 // Attempt to call backend pedidos endpoint (may not exist yet)
                 const res = await fetch('/api/pedidos?' + params.toString());
@@ -94,14 +103,30 @@
                     showMissingPedidosEndpoint(res.status);
                     return;
                 }
-                const rows = await res.json();
+                let rows = await res.json();
+                // client-side filter by estado if backend doesn't support it yet
+                if(state !== ''){
+                    rows = rows.filter(r => (r.estado !== undefined && String(r.estado) === String(state)));
+                }
                 if(!rows || rows.length === 0){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay pedidos</td></tr>'; return; }
                 rows.forEach(p=>{
                     const cliente_id = p.cliente_id || '';
                     const id = p.idpedido || p.id || p.ID || '';
                     const cliente = p.cliente_name || p.cliente || p.nombre_cliente || '';
-                    const fecha = p.fecha_produccion || p.production_date || p.fecha || '';
-                    const estado = p.estado || p.status || '';
+                    const fecha = p.fecha_taller || p.production_date || p.fecha || '';
+                    var estado = p.estado;
+                    if (estado == 0) {
+                        estado = 'Pendiente';
+                    }
+                    else if (estado == 1) {
+                        estado = 'En proceso';
+                    }
+                    else if (estado == 2) {
+                        estado = 'Completado';
+                    }
+                    else {
+                        estado = 'Desconocido';
+                    }
                     const assigned = p.assigned_to || p.employee || '';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -133,8 +158,10 @@
             const view = ev.target.closest && ev.target.closest('.view-pedido');
             if(view){
                 const id = view.getAttribute('data-id');
-                alert('Implementa /api/pedidos/<id> para ver detalles. Pedido: ' + id);
-                return;
+                fetch(`/pedidos/detalles?id=${encodeURIComponent(id)}`)
+                    .then(r=>{ if(r.ok) return r.text(); else throw new Error('Error cargando detalles'); })
+                    .then(html=>{ const w = window.open(); w.document.write(html); })
+                    .catch(err=>{ alert('No se pudieron cargar los detalles del pedido.'); });
             }
             const assign = ev.target.closest && ev.target.closest('.assign-pedido');
             if(assign){

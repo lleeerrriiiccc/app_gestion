@@ -80,6 +80,8 @@
 | idpedido | int(11) | NO | PRI | None | auto_increment |
 | cliente | int(11) | NO | MUL | 0 |  |
 | direccion_envio | int(11) | NO |  | 0 |  |
+| fecha_taller | date | YES |  | None |  |
+| estado | int(11) | YES |  | None |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente

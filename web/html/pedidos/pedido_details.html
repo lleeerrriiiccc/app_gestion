@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pedido — Detalles</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:20px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Pedido</div>
+            <div class="small">Detalles del pedido</div>
+        </div>
+
+        <section>
+            <div id="meta" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                    <table>
+                        <tr>
+                            <td><div class="muted">ID</div></td>
+                            <td><div id="pedidoId"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">ID Cliente</div></td>
+                            <td><div id="clienteName"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Fecha producción</div></td>
+                            <td><div id="fecha"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Estado</div></td>
+                            <td><div id="estado"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Dirección envío</div></td>
+                            <td><div id="direccionId"></div></td>
+                        </tr>
+                    </table>
+                </div>
+                <div>
+                    <div class="muted">Dirección de envío</div>
+                    <select id="direccionSelect"></select>
+                    <div style="margin-top:8px">
+                        <button id="saveAddressBtn" class="primary">Guardar dirección</button>
+                    </div>
+                    <div id="direccionText" class="hint" style="margin-top:8px"></div>
+                </div>
+            </div>
+
+            <hr style="margin:12px 0">
+
+            <div>
+                <div class="muted">Productos</div>
+                <div id="linesList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+                <div style="margin-top:8px">
+                    <button id="addLineBtn" class="ghost">Añadir producto</button>
+                </div>
+                <div style="margin-top:12px;font-weight:600">Total: <span id="orderTotal">0</span> €</div>
+            </div>
+
+            <div style="margin-top:18px">
+                <button onclick="location.href='/pedidos'" class="ghost">Volver</button>
+            </div>
+        </section>
+    </main>
+
+<script>
+// PEDIDO_ID is injected server-side
+const PEDIDO_ID = "{{ pedido_id }}";
+
+const pedidoIdEl = document.getElementById('pedidoId');
+const clienteNameEl = document.getElementById('clienteName');
+const fechaEl = document.getElementById('fecha');
+const estadoEl = document.getElementById('estado');
+const direccionTextEl = document.getElementById('direccionId');
+const direccionSelect = document.getElementById('direccionSelect');
+const linesList = document.getElementById('linesList');
+const orderTotalEl = document.getElementById('orderTotal');
+const addLineBtn = document.getElementById('addLineBtn');
+const saveAddressBtn = document.getElementById('saveAddressBtn');
+
+let pedidoData = null;
+
+async function loadPedido(){
+    const res = await fetch('/api/pedido?id=' + encodeURIComponent(PEDIDO_ID));
+    if(!res.ok) { alert('Error cargando pedido'); return; }
+    const data = await res.json();
+    pedidoData = data.pedido || {};
+    const lines = data.lines || [];
+    renderMeta(pedidoData, data.direccion_envio);
+    await loadAddresses(pedidoData.cliente_id);
+    renderLines(lines);
+}
+
+function renderMeta(p, direccion){
+    pedidoIdEl.textContent = p.idpedido || PEDIDO_ID;
+    clienteNameEl.textContent = p.cliente_nombre || '';
+    fechaEl.textContent = p.fecha_taller || '';
+    var estado = p.estado;
+    if (estado == 0) {
+        estado = 'Pendiente';
+    }
+    else if (estado == 1) {
+        estado = 'En proceso';
+    }
+    else if (estado == 2) {
+        estado = 'Completado';
+    }
+    else {
+        estado = 'Desconocido';
+    }
+    estadoEl.textContent = estado || '';
+    direccionTextEl.textContent = direccion ? (direccion.direccion || '') + (direccion.poblacion ? (', ' + direccion.poblacion) : '') + (direccion.codigo_postal ? (' - ' + direccion.codigo_postal) : '') : '';
+}
+
+async function loadAddresses(clientId){
+    direccionSelect.innerHTML = '<option value="">Cargando direcciones...</option>';
+    try{
+        const res = await fetch('/api/addresses?client_id=' + encodeURIComponent(clientId));
+        if(!res.ok) { direccionSelect.innerHTML = '<option value="">Error</option>'; return; }
+        const list = await res.json();
+        direccionSelect.innerHTML = '';
+        if(!Array.isArray(list) || list.length===0){
+            direccionSelect.innerHTML = '<option value="">No hay direcciones</option>';
+            return;
+        }
+        list.forEach(a=>{
+            const opt = document.createElement('option');
+            opt.value = a.idregistro || a.id || a[0] || '';
+            opt.textContent = (a.direccion || a.direccion_envio || a.address || '') + (a.poblacion?(', '+a.poblacion):'') + (a.codigo_postal?(' - '+a.codigo_postal):'');
+            direccionSelect.appendChild(opt);
+        });
+        // select current
+        if(pedidoData && pedidoData.direccion_envio){
+            direccionSelect.value = pedidoData.direccion_envio;
+        }
+    }catch(e){ direccionSelect.innerHTML = '<option value="">Error</option>'; }
+}
+
+function renderLines(lines){
+    linesList.innerHTML = '';
+    let total = 0;
+    if(!lines || lines.length===0){ linesList.innerHTML = '<div class="small">No hay líneas</div>'; orderTotalEl.textContent = '0'; return; }
+    lines.forEach(l=>{
+        const div = document.createElement('div');
+        div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.gap='8px';
+        const left = document.createElement('div'); left.style.flex='1';
+        left.innerHTML = `<div style="font-weight:600">${escapeHtml(l.producto_nombre||'—')}</div><div class="muted">${escapeHtml(l.producto_codigo||'')}</div>`;
+        const mid = document.createElement('div'); mid.style.width='120px'; mid.textContent = (l.cantidad||0) + ' x ' + (l.producto_precio||'0') + '€';
+        const right = document.createElement('div'); right.style.width='120px'; right.textContent = ((Number(l.cantidad||0) * Number(l.producto_precio||0)) || 0) + ' €';
+        div.appendChild(left); div.appendChild(mid); div.appendChild(right);
+        linesList.appendChild(div);
+        total += (Number(l.cantidad||0) * Number(l.producto_precio||0)) || 0;
+    });
+    orderTotalEl.textContent = total.toFixed(2);
+}
+
+function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// Add new line UI (reuses products autocomplete)
+function makeLineEditor(){
+    const wrapper = document.createElement('div'); wrapper.style.display='flex'; wrapper.style.gap='8px'; wrapper.style.alignItems='center';
+    const input = document.createElement('input'); input.type='text'; input.placeholder='Producto...'; input.style.flex='1';
+    const hid = document.createElement('input'); hid.type='hidden';
+    const qty = document.createElement('input'); qty.type='number'; qty.min='1'; qty.value='1'; qty.style.width='90px';
+    const addBtn = document.createElement('button'); addBtn.type='button'; addBtn.className='primary'; addBtn.textContent='Añadir';
+    const cancel = document.createElement('button'); cancel.type='button'; cancel.className='ghost'; cancel.textContent='Cancelar';
+    wrapper.appendChild(input); wrapper.appendChild(hid); wrapper.appendChild(qty); wrapper.appendChild(addBtn); wrapper.appendChild(cancel);
+
+    // product suggestions
+    let timer;
+    input.addEventListener('input', ()=>{
+        const q = input.value.trim(); hid.value='';
+        if(timer) clearTimeout(timer);
+        if(!q) return;
+        timer = setTimeout(async ()=>{
+            const r = await fetch('/api/products?q=' + encodeURIComponent(q));
+            const list = await r.json();
+            showSuggestions(list, input, hid);
+        }, 200);
+    });
+
+    addBtn.addEventListener('click', async ()=>{
+        if(!hid.value){ alert('Selecciona un producto válido'); return; }
+        const payload = { pedido_id: PEDIDO_ID, producto: hid.value, cantidad: qty.value };
+        const res = await fetch('/api/pedidos/add_line', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        if(res.ok){ await loadPedido(); } else { alert('Error añadiendo línea'); }
+    });
+    cancel.addEventListener('click', ()=> wrapper.remove());
+    return wrapper;
+}
+
+function showSuggestions(list, inputEl, idEl){
+    // dropdown positioned under the input to avoid overlapping
+    let box = inputEl._box; if(box) box.remove();
+    if(!Array.isArray(list) || list.length===0) return;
+    box = document.createElement('div');
+    box.style.position='absolute';
+    box.style.background='#fff';
+    box.style.border='1px solid #ddd';
+    box.style.zIndex=2000;
+    box.style.maxHeight='200px';
+    box.style.overflow='auto';
+    box.style.boxShadow='0 4px 10px rgba(0,0,0,0.08)';
+
+    // compute position relative to viewport and page scroll, attach to body
+    const rect = inputEl.getBoundingClientRect();
+    const left = rect.left + window.scrollX;
+    const top = rect.bottom + window.scrollY + 4; // small gap
+    box.style.left = left + 'px';
+    box.style.top = top + 'px';
+    box.style.minWidth = rect.width + 'px';
+
+    list.forEach(p=>{
+        const item = document.createElement('div');
+        item.style.padding='6px'; item.style.cursor='pointer';
+        item.textContent = p.nombre + (p.codigo?(' — '+p.codigo):'') + (p.precio?(' — '+p.precio+'€'): '');
+        item.addEventListener('click', ()=>{ inputEl.value = p.nombre; idEl.value = p.idproducto; if(inputEl._box) inputEl._box.remove(); });
+        item.addEventListener('mouseover', ()=> item.style.background='#eef');
+        item.addEventListener('mouseout', ()=> item.style.background='');
+        box.appendChild(item);
+    });
+
+    inputEl._box = box; document.body.appendChild(box);
+
+    // remove on outside click (with cleanup)
+    const outsideHandler = (ev)=>{
+        if(!box.contains(ev.target) && ev.target !== inputEl){
+            if(inputEl._box) inputEl._box.remove();
+            document.removeEventListener('click', outsideHandler);
+        }
+    };
+    setTimeout(()=> document.addEventListener('click', outsideHandler), 0);
+}
+
+addLineBtn.addEventListener('click', ()=>{
+    const ed = makeLineEditor(); linesList.appendChild(ed);
+});
+
+saveAddressBtn.addEventListener('click', async ()=>{
+    const newAddr = direccionSelect.value;
+    if(!newAddr){ alert('Selecciona una dirección'); return; }
+    const payload = { pedido_id: PEDIDO_ID, direccion_envio: newAddr };
+    const res = await fetch('/api/pedidos/update_address', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if(res.ok){ alert('Dirección actualizada'); await loadPedido(); } else { alert('Error actualizando dirección'); }
+});
+
+// init
+loadPedido();
+</script>
+</body>
+</html>

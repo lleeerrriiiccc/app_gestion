@@ -236,6 +236,60 @@ def api_products():
         return jsonify([])
 
 
+@app.route('/api/pedido', methods=['GET'])
+@login_required
+def api_pedido():
+    pedido_id = request.args.get('id')
+    if not pedido_id:
+        return ("Missing id", 400)
+    try:
+        data = db.get_pedido(pedido_id)
+        lines = db.get_pedido_lines(pedido_id)
+        id_direccion_envio = data.get('direccion_envio') if data else None
+        direccion_envio = db.get_direccion_envio(id_direccion_envio) if id_direccion_envio else None
+        return jsonify({'pedido': data, 'lines': lines, 'direccion_envio': direccion_envio})
+    except Exception as e:
+        print('api_pedido error:', e)
+        return jsonify({})
+
+
+@app.route('/api/pedidos/add_line', methods=['POST'])
+@login_required
+def api_pedidos_add_line():
+    payload = request.get_json(silent=True)
+    if not payload:
+        return ("Missing JSON payload", 400)
+    pedido_id = payload.get('pedido_id')
+    producto = payload.get('producto') or payload.get('producto_id')
+    cantidad = payload.get('cantidad', 1)
+    if not pedido_id or not producto:
+        return ("Missing parameters", 400)
+    try:
+        db.add_linea_pedido(pedido_id, producto, cantidad)
+        return ("Line added", 201)
+    except Exception as e:
+        print('api_pedidos_add_line error:', e)
+        return (f"Error: {e}", 500)
+
+
+@app.route('/api/pedidos/update_address', methods=['POST'])
+@login_required
+def api_pedidos_update_address():
+    payload = request.get_json(silent=True)
+    if not payload:
+        return ("Missing JSON payload", 400)
+    pedido_id = payload.get('pedido_id')
+    direccion = payload.get('direccion_envio')
+    if not pedido_id or direccion is None:
+        return ("Missing parameters", 400)
+    try:
+        db.update_pedido_address(pedido_id, direccion)
+        return ("Address updated", 200)
+    except Exception as e:
+        print('api_pedidos_update_address error:', e)
+        return (f"Error: {e}", 500)
+
+
 @app.route('/api/addresses/delete', methods=['POST'])
 @login_required
 def api_address_delete():
@@ -574,6 +628,14 @@ def pedidos():
     except Exception as e:
         print('pedidos_add error:', e)
         return (f"Error adding pedido: {e}", 500)
+
+#detalles del pedido
+@app.route('/pedidos/detalles', methods=['GET'])
+@login_required
+def pedido_details():
+    pedido_id = request.args.get('id')
+    return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
+
 
 
 

@@ -370,6 +370,8 @@ def list_pedidos(cliente_id):
         pedidos.idpedido, 
         clientes.name AS cliente, 
         pedidos.direccion_envio, 
+        DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y'),
+        pedidos.estado,
         pedidos.cliente AS cliente_id
         FROM pedidos
         INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
@@ -383,6 +385,8 @@ def list_pedidos(cliente_id):
         pedidos.idpedido, 
         clientes.name AS cliente, 
         pedidos.direccion_envio, 
+        DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+        pedidos.estado,
         pedidos.cliente AS cliente_id
         FROM pedidos
         INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
@@ -390,4 +394,69 @@ def list_pedidos(cliente_id):
         """
         results = read_data(query)
     return results
+
+
+def get_pedido_lines(pedido_id):
+    """Return full pedido info and its line items, including product info."""   
+
+    lines_query = """
+    SELECT lp.idlinia, lp.producto, pr.nombre AS producto_nombre, pr.codigo AS producto_codigo, pr.precio AS producto_precio, lp.cantidad
+    FROM linias_pedido lp
+    LEFT JOIN producto pr ON lp.producto = pr.idproducto
+    WHERE lp.pedido = %s
+    """
+    results_lines = read_data(lines_query, (pedido_id,))
+
+    return results_lines
+
+
+def update_pedido_address(pedido_id, direccion_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE pedidos SET direccion_envio = %s WHERE idpedido = %s", (direccion_id, pedido_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_pedido(pedido_id):
+    """Return full pedido info for a given pedido_id."""   
+    pedido_query = """
+    SELECT 
+    pedidos.idpedido, 
+    pedidos.cliente AS cliente_id,
+    clientes.name AS cliente_nombre,
+    pedidos.direccion_envio, 
+    DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+    pedidos.estado
+    FROM pedidos
+    INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+    WHERE pedidos.idpedido = %s
+    """
+    results_pedido = read_data(pedido_query, (pedido_id,))
+
+    if results_pedido:
+        return results_pedido[0]
+    else:
+        return None
+
+def get_direccion_envio(address_id):
+    """Return full address info for a given address_id from datos_envio."""   
+    address_query = """
+    SELECT 
+    idregistro,
+    cliente,
+    direccion,
+    poblacion,
+    codigo_postal,
+    pais
+    FROM datos_envio
+    WHERE idregistro = %s
+    """
+    results_address = read_data(address_query, (address_id,))
+
+    if results_address:
+        return results_address[0]
+    else:
+        return None
+
 
