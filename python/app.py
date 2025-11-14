@@ -108,6 +108,13 @@ def serve_pdf(filename):
 @app.route('/api/users', methods=['GET'])
 @login_required
 def api_users():
+    if request.args.get('dept'):
+        dept = int(request.args.get('dept'))
+        try:
+            results = db.get_users(dept=dept)
+            return jsonify(results)
+        except Exception:
+            return jsonify([])
     try:
         results = db.get_users('*')
         # normalize list of dicts -> return only username and optional fields
@@ -363,6 +370,59 @@ def api_pedidos():
     client_id = request.args.get('client_id')
     pedidos = db.list_pedidos(client_id)
     return jsonify(pedidos)
+
+
+@app.route('/api/pedidos/<int:pedido_id>/lines', methods=['GET'])
+@login_required
+def api_pedido_lines(pedido_id):
+    """Return the lines for a given pedido id.
+    Uses database.get_pedido_lines to fetch enriched product info when available.
+    """
+    try:
+        lines = db.get_pedido_lines(pedido_id)
+        return jsonify(lines)
+    except Exception as e:
+        print('api_pedido_lines error:', e)
+        return jsonify([]), 500
+
+
+@app.route('/api/pedidos/assign', methods=['POST'])
+@login_required
+def api_pedidos_assign():
+    """Accept assignment payloads per line/process and write to assignaciones table.
+
+    Expected JSON body: { "pedido": <id>, "idlinia": <idlinia>, "proceso": "cortado", "empleado": <id>, "maquina": <id?> }
+    """
+    payload = request.get_json(silent=True)
+    if not payload:
+        return ("Missing JSON payload", 400)
+
+    pedido = payload.get('pedido') or payload.get('pedido_id') or payload.get('id')
+    idlinia = payload.get('idlinia') or payload.get('linea') or payload.get('id')
+    proceso = payload.get('proceso')
+    empleado = payload.get('empleado') or payload.get('employee_id') or payload.get('empleado_id')
+    maquina = payload.get('maquina') if 'maquina' in payload else None
+
+    if not pedido or not idlinia or not proceso or not empleado:
+        return ("Missing required fields (pedido, idlinia, proceso, empleado)", 400)
+
+    try:
+        db.add_assignment(pedido, empleado, proceso, idlinia, maquina)
+        return ("Assignment saved", 201)
+    except Exception as e:
+        print('api_pedidos_assign error:', e)
+        return (f"Error saving assignment: {e}", 500)
+    
+#API: processes list
+@app.route('/api/processes', methods=['GET'])
+@login_required
+def api_processes():
+    try:
+        processes = db.list_processes()
+        return jsonify(processes)
+    except Exception as e:
+        print('api_processes error:', e)
+        return jsonify([])
 
 #USER MANAGEMENT
 # Users edit (change password)
@@ -635,6 +695,21 @@ def pedidos():
 def pedido_details():
     pedido_id = request.args.get('id')
     return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
+
+
+@app.route('/pedidos/assign', methods=['GET'])
+@login_required
+def pedidos_assign_page():
+    # Render the assign UI; the page's JS reads ?id=<pedido> from the query string.
+    pedido_id = request.args.get('id')
+    return render_template('pedidos/pedidos_assign.html', pedido_id=pedido_id)
+
+#assignar pedidos
+@app.route('/pedidos/assign', methods=['GET'])
+@login_required
+def pedido_assign():
+    pedido_id = request.args.get('id')
+    return render_template('pedidos/pedidos_assign.html', pedido_id=pedido_id)
 
 
 

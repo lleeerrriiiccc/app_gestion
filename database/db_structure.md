@@ -1,5 +1,21 @@
 # Database Structure: suimco
 
+## Tabla: assignaciones
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| pedido | int(11) | YES | MUL | None |  |
+| empleado | int(11) | YES | MUL | None |  |
+| proceso | int(11) | YES | MUL | None |  |
+| maquina | int(11) | YES | MUL | None |  |
+| idlinia | int(11) | YES | MUL | None |  |
+
+### Relaciones:
+- empleado → users.id
+- idlinia → linias_pedido.idlinia
+- maquina → maquinas.idmaquina
+- pedido → pedidos.idpedido
+- proceso → procesos.idproceso
+
 ## Tabla: clientes
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -74,6 +90,16 @@
 - pedido → pedidos.idpedido
 - producto → producto.idproducto
 
+## Tabla: maquinas
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idmaquina | int(11) | NO | PRI | None | auto_increment |
+| nombre | text | YES |  | None |  |
+| proceso | int(11) | YES | MUL | None |  |
+
+### Relaciones:
+- proceso → procesos.idproceso
+
 ## Tabla: pedidos
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -81,7 +107,7 @@
 | cliente | int(11) | NO | MUL | 0 |  |
 | direccion_envio | int(11) | NO |  | 0 |  |
 | fecha_taller | date | YES |  | None |  |
-| estado | int(11) | YES |  | None |  |
+| estado | int(11) | YES |  | 0 |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente
@@ -94,6 +120,12 @@
 | idpiezas | int(11) | NO | PRI | None | auto_increment |
 | name | text | YES |  | None |  |
 | codigo | text | YES |  | None |  |
+
+## Tabla: procesos
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| idproceso | int(11) | NO | PRI | None | auto_increment |
+| descripcion | text | YES |  | None |  |
 
 ## Tabla: producto
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |

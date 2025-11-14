@@ -166,18 +166,10 @@
             const assign = ev.target.closest && ev.target.closest('.assign-pedido');
             if(assign){
                 const id = assign.getAttribute('data-id');
-                const emp = prompt('ID empleado para asignar este pedido:');
-                if(!emp) return;
-                try{
-                    const res = await fetch('/api/pedidos/assign', {
-                        method: 'POST',
-                        headers: {'Content-Type':'application/json;charset=UTF-8'},
-                        body: JSON.stringify({id, employee_id: emp})
-                    });
-                    if(!res.ok){ const txt = await res.text(); alert('Error asignando pedido: ' + (txt||res.status)); return; }
-                    alert('Pedido asignado');
-                    loadPedidos();
-                }catch(err){ alert('Error de red al asignar'); }
+                // Abrir la página de asignación de pedidos para este id.
+                // La ruta esperada en el backend es /pedidos/assign?id=<id> que renderice la plantilla de asignación.
+                // Si prefieres abrir en una nueva ventana usa window.open en lugar de location.href.
+                window.location.href = `/pedidos/assign?id=${encodeURIComponent(id)}`;
             }
         });
 

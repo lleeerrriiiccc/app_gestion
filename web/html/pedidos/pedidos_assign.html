@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Asignar Pedido</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="page">
+    <header class="page__header">
+      <a class="btn" href="/pedidos">← Volver a Pedidos</a>
+      <h1>Asignar Pedido</h1>
+    </header>
+
+    <main class="page__content">
+      <section class="card card--wide">
+        <div class="card__header module-header"><div class="badge">Pedidos</div><h2>Asignaciones</h2></div>
+        <div class="card__body">
+          <div id="meta" class="grid">
+            <div><strong>Pedido:</strong> <span id="pedido-id">—</span></div>
+            <div><strong>Cliente:</strong> <span id="pedido-cliente">—</span></div>
+            <div><strong>Fecha taller:</strong> <span id="pedido-fecha">—</span></div>
+          </div>
+
+          <hr />
+
+          <div id="lines-area">Cargando líneas...</div>
+
+          <div style="margin-top:1rem; display:flex; gap:.5rem; align-items:center">
+            <button id="save-assignments" class="primary">Guardar asignaciones</button>
+            <div id="save-result" style="color:#333"></div>
+          </div>
+
+          <hr />
+
+          <div id="backend-notes" style="color:#666; font-size:0.95rem"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // UI for assigning processes to employees per line item
+    async function process_get(url) {
+        try {
+            const res = await fetch('/api/processes', {cache:'no-store', headers: {"Content-Type": "application/json; charset=utf-8"}});
+            if(!res.ok) throw new Error('No processes');
+            const data = await res.json();
+            return data;
+        } catch (e) {
+            return [];
+        }
+    }
+    
+
+    const qs = new URLSearchParams(window.location.search);
+    const pedidoId = qs.get('id');
+
+    const el = id => document.getElementById(id);
+
+    function escapeHtml(s){ if (s==null) return ''; return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    async function fetchJson(url, opts){
+      try{ const r = await fetch(url, opts); if (!r.ok) throw r; return await r.json(); }catch(e){ console.warn('fetch failed', url, e); return null; }
+    }
+
+    async function load() {
+        
+      if (!pedidoId) { el('lines-area').innerHTML = '<div style="color:crimson">Falta parámetro ?id=&lt;pedido&gt; en la URL.</div>'; return; }
+      el('pedido-id').textContent = pedidoId;
+
+      // 1) Obtener info del pedido (intentamos endpoints disponibles)
+      let res = await fetchJson('/api/pedido?id=' + encodeURIComponent(pedidoId));
+
+      if (!res) {
+        el('lines-area').innerHTML = '<div style="color:crimson">No se obtuvo información del pedido. Implementa GET /api/pedido?id=&lt;id&gt; o asegúrate de que /api/pedidos devuelve el pedido.</div>'; return;
+      }
+
+      el('pedido-cliente').textContent = res.pedido.cliente_nombre || res.cliente || '5';
+      el('pedido-fecha').textContent = res.pedido.fecha_taller || res['fecha_taller'] || '—';
+
+      // 2) Cargar usuarios (empleados) para dropdowns
+      const users = await fetchJson('/api/users?dept=6');
+      const employees = users || [];
+
+      // 3) Obtener líneas del pedido
+      // Intentos: /api/pedidos/{id}/lines, /api/pedido_lines?id=, /api/pedido?id= (como lines), /api/pedidos (no ideal)
+      let lines = null;
+      // Try common RESTy route
+      lines = await fetchJson(`/api/pedidos/${pedidoId}/lines`);
+      if (!lines) {
+        // try query param style
+        lines = await fetchJson(`/api/pedidos/lines?id=${pedidoId}`);
+      }
+      if (!lines) {
+        // try singular pedido endpoint if it returns lines
+        if (pedido.lines) lines = pedido.lines;
+        if (pedido.linias) lines = pedido.linias;
+      }
+      
+    const processes = await fetch('/api/processes', {cache:'no-store', headers: {"Content-Type": "application/json; charset=utf-8"}});
+    if(!processes.ok) throw new Error('No processes');
+    const processes_data = await processes.json();
+        
+
+
+      renderLines(lines, employees, processes_data);
+    }
+
+    function renderLines(lines, employees, processes) {
+      const container = el('lines-area');
+      container.innerHTML = '';
+
+      const table = document.createElement('table');
+      table.className = 'table-responsive';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>Línea</th><th>Producto</th><th>Cantidad</th><th>Procesos</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+
+      lines.forEach((ln, idx) => {
+        const tr = document.createElement('tr');
+        const prodName = ln.producto_nombre || ln.nombre || ln.producto || '';
+        const cantidad = ln.cantidad || ln.cantidad || 0;
+        tr.innerHTML = `<td>${escapeHtml(String(ln.idlinia || idx+1))}</td><td>${escapeHtml(prodName)}</td><td>${escapeHtml(String(cantidad))}</td><td class="process-cell" data-line="${escapeHtml(String(ln.idlinia||''))}"></td>`;
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      container.appendChild(table);
+
+      // For each process-cell, add controls: for each process a checkbox + employee select
+      const cells = container.querySelectorAll('.process-cell');
+      cells.forEach(cell => {
+        const lineId = cell.getAttribute('data-line');
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.gap = '.5rem';
+        
+        processes.forEach(proc => {
+            const procid = proc.id;
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.gap = '.5rem';
+            row.style.alignItems = 'center';
+
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.className = 'proc-cb'; cb.dataset.proc =  procid; cb.dataset.line = lineId;
+            const label = document.createElement('label'); label.textContent = proc.nombre || proc;
+            const select = document.createElement('select'); select.className = 'emp-select'; select.dataset.proc = procid; select.dataset.line = lineId;
+            select.style.minWidth = '160px';
+
+          // default option
+          const opt0 = document.createElement('option'); opt0.value = ''; opt0.textContent = 'Selecciona empleado'; select.appendChild(opt0);
+
+          // fill employees
+          const users = employees || [];
+          users.forEach(u => {
+            const o = document.createElement('option');
+            // users may have fields: user, id, pass — prefer id then user
+            const uid = u.id || u.user || u.idusuario || u['id'];
+            const uname = u.user || u.name || (u.user && u.user) || String(uid);
+            o.value = uid; o.textContent = uname; select.appendChild(o);
+          });
+
+          row.appendChild(cb);
+          row.appendChild(label);
+          row.appendChild(select);
+          wrapper.appendChild(row);
+        });
+
+        cell.appendChild(wrapper);
+      });
+
+      // enable save button
+      el('save-assignments').onclick = () => saveAssignments(lines, processes);
+    }
+
+    async function saveAssignments(lines, processes) {
+        console.log("saveAssignments called");
+        console.log("processes:", processes);
+      const results = [];
+      const errors = [];
+      for (const ln of lines){
+        const lineId = ln.idlinia || ln.id || ln.linea || null;
+        if (!lineId) continue;
+        for (const proc of processes){
+          // find checkbox for this line+proc
+          const cb = document.querySelector(`.proc-cb[data-line="${lineId}"][data-proc="${proc.id}"]`);
+          const sel = document.querySelector(`.emp-select[data-line="${lineId}"][data-proc="${proc.id}"]`);
+          if (!cb) continue;
+          if (cb.checked){
+            const employee_id = sel ? sel.value : '';
+            if (!employee_id){
+              // skip assignments without employee
+              continue;
+            }
+            const payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
+            console.log('Payload:', payload);
+            // Attempt to POST to recommended endpoint
+            try{
+              const res = await fetch('/api/pedidos/assign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+              if (res.ok){
+                results.push({ payload });
+              } else {
+                const text = await res.text().catch(()=>res.statusText);
+                errors.push({ payload, status: res.status, text });
+              }
+            }catch(e){
+              errors.push({ payload, error: String(e) });
+            }
+          }
+        }
+      }
+
+      const rEl = el('save-result');
+      if (errors.length === 0){
+        rEl.style.color = 'green'; rEl.textContent = 'Asignaciones enviadas. Revisa el servidor para confirmar.';
+      } else {
+        rEl.style.color = 'crimson'; rEl.innerHTML = `Errores: ${errors.length}. Comprueba que el endpoint <code>/api/pedidos/assign</code> acepta payload JSON { pedido, idlinia, proceso, empleado }.`;
+        console.warn('assign errors', errors);
+      }
+
+      // Also show a short summary in backend-notes for developer
+      const notes = [];
+      notes.push('<strong>Payloads enviados (muestra):</strong>');
+      notes.push('<pre style="background:#f6f6f6;padding:8px;border-radius:4px">' + escapeHtml(JSON.stringify(results.slice(0,6), null, 2)) + '</pre>');
+      el('backend-notes').innerHTML = notes.join('\n');
+    }
+
+    // load at start
+    load();
+
+  </script>
+
+
+
+</body>
+</html>

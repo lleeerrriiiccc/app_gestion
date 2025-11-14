@@ -58,6 +58,27 @@ input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 6px 18px rgba
 /* Wider card variant for tables/edit pages that need more horizontal space */
 .card--wide{width:100%;max-width:1100px}
 
+/* Card subcomponents used by templates */
+.card__header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.card__header h2{font-size:16px;margin:0}
+.card__body{padding-top:6px}
+
+/* Generic small button style used across templates */
+.btn{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid #e6e9ee;background:transparent;color:#0b63b7;cursor:pointer}
+.btn:hover{background:#f6f9ff}
+
+/* Table defaults to match app look */
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #eef2f7}
+thead th{background:transparent;color:var(--muted);font-weight:700}
+
+/* Process controls grid */
+.process-cell > div{display:flex;flex-direction:column;gap:.5rem}
+.process-cell .proc-cb{margin-right:8px}
+.process-cell label{min-width:84px;text-transform:capitalize;color:var(--muted)}
+.process-cell select{padding:8px;border-radius:8px;border:1px solid #e6e9ee}
+
+
 /* Responsive table wrapper: allows horizontal scroll when table is wider than container */
 .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}
 

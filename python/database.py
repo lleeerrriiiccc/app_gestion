@@ -73,8 +73,8 @@ def create_user(username, password, privilege=0):
     cursor.close()
     conn.close()
 
-def get_users(username="*"):
-    if username == "*":
+def get_users(username=None, dept=None):
+    if username is None and dept is None:
         query = "SELECT * FROM users"
         conn = connect()
         cursor = conn.cursor(dictionary=True)
@@ -83,7 +83,11 @@ def get_users(username="*"):
         cursor.close()
         conn.close()
         return results
-    else:
+    elif dept is not None:
+        query = "SELECT user, id FROM users WHERE dept = %s"
+        response = read_data(query, (dept,))
+        return response
+    elif username is not None:
         conn = connect()
         cursor = conn.cursor(dictionary=True)
         query = "SELECT * FROM users WHERE user = %s"
@@ -91,7 +95,12 @@ def get_users(username="*"):
         results = cursor.fetchall()
         cursor.close()
         conn.close()
-    return results
+        return results
+    elif username is not None and dept is not None:
+        query = "SELECT * FROM users WHERE user = %s AND dept = %s"
+        response = read_data(query, (username, dept))
+        return response
+    return "Error: No parameters provided."
 
 def check_params(param:list):
     for p in param:
@@ -458,5 +467,30 @@ def get_direccion_envio(address_id):
         return results_address[0]
     else:
         return None
+
+
+def add_assignment(pedido, empleado, proceso, idlinia, maquina=None):
+    """Insert an assignment into the assignaciones table.
+
+    Expects: pedido (int), empleado (int), proceso (str or int), idlinia (int), maquina (int or None)
+    """
+    conn = connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO assignaciones (pedido, empleado, proceso, idlinia, maquina) VALUES (%s, %s, %s, %s, %s)",
+            (pedido, empleado, proceso, idlinia, maquina)
+        )
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+def list_processes():
+    """Return list of distinct processes from assignaciones table."""
+    query = "SELECT DISTINCT idproceso AS id, descripcion AS nombre FROM procesos;"
+    results = read_data(query)
+    return results
+
 
 
