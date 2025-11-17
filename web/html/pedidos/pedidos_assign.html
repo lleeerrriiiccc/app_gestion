@@ -220,10 +220,7 @@
       }
 
       // Also show a short summary in backend-notes for developer
-      const notes = [];
-      notes.push('<strong>Payloads enviados (muestra):</strong>');
-      notes.push('<pre style="background:#f6f6f6;padding:8px;border-radius:4px">' + escapeHtml(JSON.stringify(results.slice(0,6), null, 2)) + '</pre>');
-      el('backend-notes').innerHTML = notes.join('\n');
+      
     }
 
     // load at start

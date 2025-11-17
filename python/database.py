@@ -373,8 +373,65 @@ def products_list(q='*', idproducto=None):
         conn.close()
     return rows
 
-def list_pedidos(cliente_id):
-    if cliente_id:
+def create_product(nombre, codigo=None, descripcion=None, precio=None, planos=None):
+    """Insert a product into `producto` and return the new id."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO producto (nombre, codigo, descripcion, precio, planos) VALUES (%s, %s, %s, %s, %s)",
+        (nombre, codigo, descripcion, precio, planos)
+    )
+    conn.commit()
+    pid = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return pid
+
+def add_despiece(producto_id, pieza_id):
+    """Insert a despiece row into `despiece_productos`."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO despiece_productos (producto, pieza) VALUES (%s, %s)", (producto_id, pieza_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def list_piezas():
+    """Return list of piezas (idpiezas, name, codigo)."""
+    query = "SELECT idpiezas, name, codigo FROM piezas"
+    return read_data(query)
+
+
+def get_piezas_by_producto(producto_id):
+    """Return piezas linked to a producto via despiece_productos.
+
+    Returns list of dicts: idpiezas, name, codigo, plano
+    """
+    query = """
+    SELECT p.idpiezas, p.name, p.codigo, p.plano
+    FROM despiece_productos dp
+    INNER JOIN piezas p ON dp.pieza = p.idpiezas
+    WHERE dp.producto = %s
+    """
+    return read_data(query, (producto_id,))
+
+
+def create_pieza(name, codigo=None, plano=None):
+    """Insert a pieza into `piezas` and return the new idpiezas."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO piezas (name, codigo, plano) VALUES (%s, %s, %s)",
+        (name, codigo, plano)
+    )
+    conn.commit()
+    pid = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return pid
+
+def list_pedidos(cliente_id=None, date_from=None, date_to=None):
+    if cliente_id is not None:
         """Return list of pedidos with client names."""
         query = """
         SELECT 
@@ -390,6 +447,54 @@ def list_pedidos(cliente_id):
         LIMIT 500;
         """
         results = read_data(query, (cliente_id,))
+    elif date_from is not None and date_to is not None:
+        """Return list of pedidos within a date range."""
+        query = """
+        SELECT 
+        pedidos.idpedido, 
+        clientes.name AS cliente, 
+        pedidos.direccion_envio, 
+        DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+        pedidos.estado,
+        pedidos.cliente AS cliente_id
+        FROM pedidos
+        INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+        WHERE pedidos.fecha_taller BETWEEN %s AND %s
+        LIMIT 500;
+        """
+        results = read_data(query, (date_from, date_to))
+    elif date_from is not None and date_to is None:
+        """Return list of pedidos from a specific date onwards."""
+        query = """
+        SELECT 
+        pedidos.idpedido, 
+        clientes.name AS cliente, 
+        pedidos.direccion_envio, 
+        DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+        pedidos.estado,
+        pedidos.cliente AS cliente_id
+        FROM pedidos
+        INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+        WHERE pedidos.fecha_taller >= %s
+        LIMIT 500;
+        """
+        results = read_data(query, (date_from,))
+    elif date_from is None and date_to is not None:
+        """Return list of pedidos up to a specific date."""
+        query = """
+        SELECT 
+        pedidos.idpedido, 
+        clientes.name AS cliente, 
+        pedidos.direccion_envio, 
+        DATE_FORMAT(pedidos.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+        pedidos.estado,
+        pedidos.cliente AS cliente_id
+        FROM pedidos
+        INNER JOIN clientes ON pedidos.cliente = clientes.idcliente
+        WHERE pedidos.fecha_taller <= %s
+        LIMIT 500;
+        """
+        results = read_data(query, (date_to,))
     else:
         query = """
         SELECT 

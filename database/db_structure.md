@@ -121,6 +121,7 @@
 | idpiezas | int(11) | NO | PRI | None | auto_increment |
 | name | text | YES |  | None |  |
 | codigo | text | YES |  | None |  |
+| plano | text | YES |  | 'No hay planos para este producto' |  |
 
 ## Tabla: procesos
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
@@ -137,7 +138,7 @@
 | nombre | text | YES |  | None |  |
 | codigo | text | YES |  | None |  |
 | precio | int(11) | YES |  | None |  |
-| planos | text | YES |  | None |  |
+| planos | text | YES |  | 'No hay planos para este producto' |  |
 
 ## Tabla: users
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |

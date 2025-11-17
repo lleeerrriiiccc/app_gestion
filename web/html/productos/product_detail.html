@@ -25,6 +25,7 @@
 
     <div style="margin-top:12px">
       <button class="ghost" onclick="location.href='/products'">Volver</button>
+      <button class="ghost" id="view-despiece-btn" style="margin-left:8px; display:none;">Ver despiece</button>
     </div>
   </main>
 
@@ -59,15 +60,26 @@
       const planos = 'No hay planos para este producto';
     }
     else if(p.planos){
-        const planos = p.planos || p.planos_file || '';
+        var path = p.planos || p.planos_file || "";
+        var nombreArchivo = path.split(/(\\|\/)/g).pop();
+        var planos = p.planos || p.planos_file || "";
+        var planosLink = planos
       const a = document.createElement('a');
-      a.href = '/pdf/'+encodeURIComponent(planos);
+      a.href = '/pdf/planos/productos/'+encodeURIComponent(nombreArchivo);
       a.target = '_blank';
       a.textContent = 'Ver plano';
       planosEl.innerHTML = '';
       planosEl.appendChild(a);
     }else{
       planosEl.textContent = '—';
+    }
+    // enable despiece button
+    const despBtn = document.getElementById('view-despiece-btn');
+    if(despBtn){
+      despBtn.style.display = '';
+      despBtn.addEventListener('click', ()=>{
+        window.location.href = '/products/despiece?id=' + encodeURIComponent(id);
+      })
     }
   }catch(e){ console.error(e); nameEl.textContent = 'Error cargando producto'; }
 

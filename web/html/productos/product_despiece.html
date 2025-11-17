@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Despiece de Producto</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Productos</div>
+      <div class="small">Ver Despiece</div>
+    </div>
+
+    <section>
+      <div class="form-row">
+        <label>Seleccionar producto</label>
+        <select id="productSelect"></select>
+      </div>
+
+      <div class="table-responsive" style="margin-top:12px">
+        <table id="despieceTable">
+          <thead>
+            <tr><th>Nombre</th><th>Código</th><th>Plano</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div style="margin-top:12px">
+      <button class="ghost" onclick="location.href='/products'">Volver</button>
+    </div>
+  </main>
+
+<script>
+    
+(async function(){
+  const select = document.getElementById('productSelect');
+  const tbody = document.querySelector('#despieceTable tbody');
+
+  function escape(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadProducts(){
+    select.innerHTML = '<option value="">Cargando...</option>';
+    try{
+      const res = await fetch('/api/products?q=*');
+      if(!res.ok){ select.innerHTML = '<option value="">Error cargando productos</option>'; return; }
+      const rows = await res.json();
+      select.innerHTML = '';
+      select.appendChild(new Option('-- seleccionar --', ''));
+      rows.forEach(p => {
+        const id = p.idproducto || p.id || p.producto || '';
+        const text = (p.nombre || p.descripcion || p.name || '') + (p.codigo ? (' — '+p.codigo) : '');
+        select.appendChild(new Option(text, id));
+      });
+    }catch(e){ console.error(e); select.innerHTML = '<option value="">Error</option>'; }
+  }
+
+  async function loadDespiece(productId){
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Cargando...</td></tr>';
+    if(!productId){ tbody.innerHTML = '<tr><td colspan="3" class="empty">Seleccione un producto</td></tr>'; return; }
+    try{
+      const res = await fetch('/api/producto/piezas?id='+encodeURIComponent(productId));
+      if(!res.ok){ tbody.innerHTML = '<tr><td colspan="3" class="empty">Error cargando despiece</td></tr>'; return; }
+      const rows = await res.json();
+      if(!rows || rows.length===0){ tbody.innerHTML = '<tr><td colspan="3" class="empty">No hay piezas para este producto</td></tr>'; return; }
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const plano = r.plano || r.plano_file || r.plano_filename || r.plano || '';
+        const planoLink = plano ? `<a href="/pdf/planos/piezas/${encodeURIComponent(plano)}" target="_blank">Ver plano</a>` : '—';
+        tr.innerHTML = `
+          <td>${escape(r.name || r.nombre || '')}</td>
+          <td>${escape(r.codigo || '')}</td>
+          <td>${planoLink}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }catch(e){ console.error(e); tbody.innerHTML = '<tr><td colspan="3" class="empty">Error cargando despiece</td></tr>'; }
+  }
+
+  select.addEventListener('change', ()=> loadDespiece(select.value));
+
+  await loadProducts();
+try{
+        var productId = "{{ request.args.get('id', '') }}";
+        const select = document.getElementById('productSelect');
+        select.value = productId;
+        loadDespiece(productId);
+    }catch(e){
+        console.error(e);
+    }
+})();
+
+</script>
+</body>
+</html>

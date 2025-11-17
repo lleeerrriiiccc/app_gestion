@@ -19,7 +19,10 @@
                 <label class="muted">Cliente</label>
                 <select id="filterClient" style="min-width:260px"><option value="">Todos</option></select>
                 <label class="muted">Fecha de producción</label>
-                <input id="filterDate" type="date" />
+                <p>Desde</p>
+                <input id="filterDateFrom" type="date" />
+                <p>Hasta</p>
+                <input id="filterDateTo" type="date" />
                 <label class="muted">Estado</label>
                 <select id="filterState">
                     <option value="">Todos</option>
@@ -90,10 +93,12 @@
             try{
                 const params = new URLSearchParams();
                 const client = clientSelect.value;
-                const date = dateInput.value;
+                const dateFrom = document.getElementById('filterDateFrom').value;
+                const dateTo = document.getElementById('filterDateTo').value;
                 const state = document.getElementById('filterState').value;
                 if(client) params.set('client_id', client);
-                if(date) params.set('production_date', date);
+                if(dateFrom) params.set('date_from', dateFrom);
+                if(dateTo) params.set('date_to', dateTo);
                 if(state !== '') params.set('estado', state);
 
                 // Attempt to call backend pedidos endpoint (may not exist yet)

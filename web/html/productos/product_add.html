@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Añadir Producto</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Productos</div>
+      <div class="small">Añadir</div>
+    </div>
+
+    <section>
+      <form id="productForm" method="post" action="/products/add" enctype="multipart/form-data">
+        <div class="form-row">
+          <label>Nombre</label>
+          <input type="text" name="nombre" required />
+        </div>
+        <div class="form-row">
+          <label>Código</label>
+          <input type="text" name="codigo" />
+        </div>
+        <div class="form-row">
+          <label>Descripción</label>
+          <textarea name="descripcion"></textarea>
+        </div>
+        <div class="form-row">
+          <label>Precio</label>
+          <input type="number" name="precio" step="0.01" />
+        </div>
+        <div class="form-row">
+          <label>Planos (PDF)</label>
+          <input type="file" name="planos" accept="application/pdf" />
+        </div>
+
+        <hr />
+        <h3>Despiece (piezas específicas del producto)</h3>
+        <div id="despieceContainer">
+          <div class="despiece-row">
+            <input type="text" name="despiece_name[]" placeholder="Nombre pieza" required />
+            <input type="text" name="despiece_codigo[]" placeholder="Código" />
+            <input type="file" name="despiece_plano[]" accept="application/pdf" />
+            <button type="button" class="ghost small" onclick="removeRow(event)">Eliminar</button>
+          </div>
+        </div>
+        <div style="margin-top:6px">
+          <button type="button" class="ghost" id="addPieza">Añadir pieza</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="primary" type="submit">Crear producto</button>
+          <button type="button" class="ghost" onclick="location.href='/productos'">Volver</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+<script>
+function removeRow(ev){ ev.currentTarget.closest('.despiece-row').remove(); }
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const container = document.getElementById('despieceContainer');
+
+  document.getElementById('addPieza').addEventListener('click', ()=>{
+    const row = document.createElement('div'); row.className = 'despiece-row';
+    const name = document.createElement('input'); name.type='text'; name.name='despiece_name[]'; name.placeholder='Nombre pieza'; name.required = true;
+    const code = document.createElement('input'); code.type='text'; code.name='despiece_codigo[]'; code.placeholder='Código';
+    const file = document.createElement('input'); file.type='file'; file.name='despiece_plano[]'; file.accept='application/pdf';
+    const btn = document.createElement('button'); btn.type='button'; btn.className='ghost small'; btn.textContent='Eliminar'; btn.addEventListener('click', removeRow);
+    row.appendChild(name); row.appendChild(code); row.appendChild(file); row.appendChild(btn); container.appendChild(row);
+  });
+});
+</script>
+
+</body>
+</html>

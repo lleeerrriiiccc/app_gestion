@@ -73,7 +73,7 @@
                 var planos = p.planos || p.planos_file || "";
                 var planosLink = planos
                   ? `<a href="${encodeURI(
-                      "/pdf/planos/" + nombreArchivo
+                      "/pdf/planos/productos/" + nombreArchivo
                     )}" target="_blank">Ver plano</a>`
                   : "—";
               } else {
@@ -85,9 +85,14 @@
           <td>${escape(p.nombre || p.descripcion || p.name || "")}</td>
           <td>${escape(p.codigo || p.code || "")}</td>
           <td>${planosLink}</td>
-          <td><button class="primary" onclick="viewProduct('${encodeURIComponent(
-            p.idproducto || p.id || p.idproducto || p.codigo || p.nombre
-          )}')">Ver</button></td>
+          <td>
+            <button class="primary" onclick="viewProduct('${encodeURIComponent(
+              p.idproducto || p.id || p.idproducto || p.codigo || p.nombre
+            )}')">Ver</button>
+            <button class="ghost" onclick="viewDespiece('${encodeURIComponent(
+              p.idproducto || p.id || p.idproducto || p.codigo || p.nombre
+            )}')">Ver despiece</button>
+          </td>
         `;
               tbody.appendChild(tr);
             });
@@ -101,6 +106,10 @@
         window.viewProduct = function (id) {
           window.location.href = "/products/detail?id=" + id;
         };
+
+        window.viewDespiece = function(id){
+          window.location.href = '/products/despiece?id=' + id;
+        }
 
         load();
       })();

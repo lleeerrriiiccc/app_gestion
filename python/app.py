@@ -103,9 +103,15 @@ def serve_pdf(filename):
         files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
         return send_from_directory(files_dir, filename)
 
-@app.route('/pdf/planos/<filename>')
+@app.route('/pdf/planos/piezas/<filename>')
 @login_required
-def serve_planos(filename):
+def serve_planos_piezas(filename):
+        files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'planos'))
+        return send_from_directory(files_dir, filename)
+
+@app.route('/pdf/planos/productos/<filename>')
+@login_required
+def serve_planos_productos(filename):
         files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'planos'))
         return send_from_directory(files_dir, filename)
 
@@ -241,7 +247,6 @@ def api_products():
     q = request.args.get('q', '*')
     idproducto = request.args.get('id')
     try:
-        print('api_products called with q:', q, 'idproducto:', idproducto)
         prods = db.products_list(q, idproducto)
         return jsonify(prods)
     except Exception as e:
@@ -374,7 +379,9 @@ def api_address_update():
 @login_required
 def api_pedidos():
     client_id = request.args.get('client_id')
-    pedidos = db.list_pedidos(client_id)
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    pedidos = db.list_pedidos(client_id, date_from, date_to)
     return jsonify(pedidos)
 
 
@@ -802,6 +809,100 @@ def products_list():
 def product_details():
     product_id = request.args.get('id')
     return render_template('productos/product_detail.html', product_id=product_id)
+
+
+@app.route('/products/add', methods=['GET', 'POST'])
+@login_required
+def products_add():
+    if request.method == 'GET':
+        return render_template('productos/product_add.html')
+
+    # POST -> create product
+    nombre = request.form.get('nombre')
+    codigo = request.form.get('codigo')
+    descripcion = request.form.get('descripcion')
+    precio = request.form.get('precio')
+
+    # handle planos upload
+    planos_file = request.files.get('planos')
+    planos_filename = None
+    if planos_file and planos_file.filename:
+        filename = secure_filename(planos_file.filename)
+        planos_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'planos'))
+        os.makedirs(planos_dir, exist_ok=True)
+        save_path = os.path.join(planos_dir, filename)
+        planos_file.save(save_path)
+        planos_filename = filename
+
+    # create product in DB
+    try:
+        pid = db.create_product(nombre, codigo, descripcion, precio if precio!='' else None, planos_filename)
+    except Exception as e:
+        print('create_product error', e)
+        abort(500)
+
+    # despiece entries: form provides arrays for name, codigo and optional plano file
+    pieza_names = request.form.getlist('despiece_name[]')
+    pieza_codigos = request.form.getlist('despiece_codigo[]')
+    pieza_files = request.files.getlist('despiece_plano[]')
+    try:
+        for i, pname in enumerate(pieza_names):
+            if not pname or not pname.strip():
+                continue
+            pcodigo = pieza_codigos[i] if i < len(pieza_codigos) else None
+            plano_filename_piece = None
+            if i < len(pieza_files):
+                pf = pieza_files[i]
+                if pf and pf.filename:
+                    safe = secure_filename(pf.filename)
+                    planos_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'planos'))
+                    os.makedirs(planos_dir, exist_ok=True)
+                    save_name = f"pieza_prod{pid}_{i}_{safe}"
+                    pf.save(os.path.join(planos_dir, save_name))
+                    plano_filename_piece = save_name
+
+            # create pieza and relation
+            try:
+                pieza_id = db.create_pieza(pname, pcodigo, plano_filename_piece)
+                db.add_despiece(pid, pieza_id)
+            except Exception as e:
+                print('error inserting pieza/despiece', e)
+                # continue with next pieza
+    except Exception as e:
+        print('add_despiece error', e)
+
+    return redirect(url_for('product_details') + '?id=' + str(pid))
+
+
+@app.route('/api/piezas', methods=['GET'])
+@login_required
+def api_piezas():
+    try:
+        rows = db.list_piezas()
+        return jsonify(rows)
+    except Exception as e:
+        print('api_piezas error', e)
+        return jsonify([])
+
+
+@app.route('/api/producto/piezas', methods=['GET'])
+@login_required
+def api_producto_piezas():
+    pid = request.args.get('id')
+    if not pid:
+        return jsonify([])
+    try:
+        rows = db.get_piezas_by_producto(pid)
+        return jsonify(rows)
+    except Exception as e:
+        print('api_producto_piezas error', e)
+        return jsonify([])
+
+
+@app.route('/products/despiece', methods=['GET'])
+@login_required
+def products_despiece():
+    return render_template('productos/product_despiece.html')
 
 
 
