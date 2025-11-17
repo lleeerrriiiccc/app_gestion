@@ -97,7 +97,6 @@
         }
 
         async function confirmDelete(id){
-            console.log("confirmDelete", id);
             if(!id) return;
             if(!confirm(`¿Eliminar la factura con ID ${id}? Esta acción no se puede deshacer.`)) return;
             message.textContent = '';

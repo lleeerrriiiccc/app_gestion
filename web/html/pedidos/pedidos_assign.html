@@ -178,8 +178,6 @@
     }
 
     async function saveAssignments(lines, processes) {
-        console.log("saveAssignments called");
-        console.log("processes:", processes);
       const results = [];
       const errors = [];
       for (const ln of lines){
@@ -197,7 +195,6 @@
               continue;
             }
             const payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
-            console.log('Payload:', payload);
             // Attempt to POST to recommended endpoint
             try{
               const res = await fetch('/api/pedidos/assign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });

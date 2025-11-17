@@ -355,16 +355,18 @@ def add_linea_pedido(pedido_id, producto_id, cantidad):
     conn.close()
 
 
-def products_list(q='*'):
+def products_list(q='*', idproducto=None):
     """Return list of products. If q provided, performs a LIKE search on `nombre`."""
     conn = connect()
     cursor = conn.cursor(dictionary=True)
     try:
         if q and q != '*':
             term = q + '%'
-            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio FROM producto WHERE nombre LIKE %s LIMIT 200", (term,))
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto WHERE nombre LIKE %s LIMIT 200", (term,))
+        elif idproducto is not None:
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto WHERE idproducto = %s LIMIT 200", (idproducto,))
         else:
-            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio FROM producto LIMIT 200")
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto LIMIT 200")
         rows = cursor.fetchall()
     finally:
         cursor.close()

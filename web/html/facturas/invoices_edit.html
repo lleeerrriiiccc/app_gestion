@@ -126,7 +126,7 @@
                 tr.innerHTML = `
                     <td>${r.idfactura}</td>
                     <td>${escapeHtml(r.cliente||r.cliente_name||'')}</td>
-                    <td>${r.ubicacion_factura ? `<a href="/pdf/${nombreArchivo}" target="_blank">ver</a>` : ''}</td>
+                    <td>${r.ubicacion_factura ? `<a href="/pdf/bills/${nombreArchivo}" target="_blank">ver</a>` : ''}</td>
                     <td>${statusLabel(r.factura_pendiente)}</td>
                     <td>${escapeHtml(r.email||'')}</td>
                     <td><button class="ghost" data-id="${r.idfactura}" data-cliente="${escapeAttr(r.cliente)}" data-email="${escapeAttr(r.email)}" data-pendiente="${r.factura_pendiente}">Editar</button></td>

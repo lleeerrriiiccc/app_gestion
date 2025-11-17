@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detalle Producto</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Productos</div>
+      <div class="small">Detalle</div>
+    </div>
+
+    <section>
+      <div id="productCard" class="card__body">
+        <h2 id="p-name">Cargando...</h2>
+        <div class="muted" id="p-code"></div>
+        <p id="p-desc"></p>
+        <p><strong>Precio:</strong> <span id="p-price">—</span></p>
+        <p><strong>Planos:</strong> <span id="p-planos">—</span></p>
+      </div>
+    </section>
+
+    <div style="margin-top:12px">
+      <button class="ghost" onclick="location.href='/products'">Volver</button>
+    </div>
+  </main>
+
+<script>
+(async function(){
+  function qs(name){
+    const u = new URL(window.location.href);
+    return u.searchParams.get(name);
+  }
+  function escape(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  const id = qs('id') || qs('idproducto') || '';
+  const nameEl = document.getElementById('p-name');
+  const codeEl = document.getElementById('p-code');
+  const descEl = document.getElementById('p-desc');
+  const priceEl = document.getElementById('p-price');
+  const planosEl = document.getElementById('p-planos');
+
+  if(!id){ nameEl.textContent = 'Producto no especificado'; return; }
+
+  try{
+    const res = await fetch('/api/products?id='+encodeURIComponent(id));
+    if(!res.ok){ nameEl.textContent = 'Error cargando producto'; return; }
+    const list = await res.json();
+    if(!list || list.length===0){ nameEl.textContent = 'Producto no encontrado'; return; }
+    const p = list[0];
+    nameEl.textContent = p.nombre || p.descripcion || p.name || '—';
+    codeEl.textContent = p.codigo || p.code || '';
+    descEl.textContent = p.descripcion || p.desc || '';
+    priceEl.textContent = (p.precio!=null) ? p.precio : '—';
+    if(p.planos == 'No hay planos para este producto'){
+      const planos = 'No hay planos para este producto';
+    }
+    else if(p.planos){
+        const planos = p.planos || p.planos_file || '';
+      const a = document.createElement('a');
+      a.href = '/pdf/'+encodeURIComponent(planos);
+      a.target = '_blank';
+      a.textContent = 'Ver plano';
+      planosEl.innerHTML = '';
+      planosEl.appendChild(a);
+    }else{
+      planosEl.textContent = '—';
+    }
+  }catch(e){ console.error(e); nameEl.textContent = 'Error cargando producto'; }
+
+})();
+</script>
+</body>
+</html>

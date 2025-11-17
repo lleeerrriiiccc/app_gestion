@@ -97,11 +97,17 @@ def data():
         return jsonify([])
     return jsonify(clients)
 
-@app.route('/pdf/<filename>')
+@app.route('/pdf/bills/<filename>')
 @login_required
 def serve_pdf(filename):
-    files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
-    return send_from_directory(files_dir, filename)
+        files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
+        return send_from_directory(files_dir, filename)
+
+@app.route('/pdf/planos/<filename>')
+@login_required
+def serve_planos(filename):
+        files_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'planos'))
+        return send_from_directory(files_dir, filename)
 
 # API requests
 # API: return users list for management UI
@@ -119,7 +125,6 @@ def api_users():
         results = db.get_users()
         # normalize list of dicts -> return only username and optional fields
         out = []
-        print('api_users results:', results)
         for r in results:
             if isinstance(r, dict):
                 out.append({'user': r.get('user') or r.get('name')})
@@ -152,14 +157,12 @@ def api_invoices():
             params.append(0)
         if where:
             base = base + ' WHERE ' + ' AND '.join(where) + ';'
-            print('Final query:', base, params)
         cur.execute(base, params)
         rows = cur.fetchall()
         cur.close()
         conn.close()
         return jsonify(rows)
     except Exception as e:
-        print('api_invoices error:', e)
         return jsonify([])
     
 # API: current user info
@@ -236,8 +239,10 @@ def api_addresses():
 @login_required
 def api_products():
     q = request.args.get('q', '*')
+    idproducto = request.args.get('id')
     try:
-        prods = db.products_list(q)
+        print('api_products called with q:', q, 'idproducto:', idproducto)
+        prods = db.products_list(q, idproducto)
         return jsonify(prods)
     except Exception as e:
         print('api_products error:', e)
@@ -786,6 +791,17 @@ def pedidos_assignment_detail_page():
     proces = request.args.get('proceso')
     return render_template('pedidos/assignment_detail.html', pedido_id=pedido_id, line_id=line_id, proceso=proces)
 
+
+@app.route('/products', methods=['GET'])
+@login_required
+def products_list():
+    return render_template('productos/products_list.html')
+
+@app.route("/products/detail", methods=['GET'])
+@login_required
+def product_details():
+    product_id = request.args.get('id')
+    return render_template('productos/product_detail.html', product_id=product_id)
 
 
 

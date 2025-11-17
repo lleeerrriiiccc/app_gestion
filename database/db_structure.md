@@ -8,7 +8,7 @@
 | proceso | int(11) | YES | MUL | None |  |
 | maquina | int(11) | YES | MUL | None |  |
 | idlinia | int(11) | YES | MUL | None |  |
-| estado | int(11) | YES |  | None |  |
+| estado | int(11) | YES |  | 0 |  |
 
 ### Relaciones:
 - empleado → users.id
@@ -137,6 +137,7 @@
 | nombre | text | YES |  | None |  |
 | codigo | text | YES |  | None |  |
 | precio | int(11) | YES |  | None |  |
+| planos | text | YES |  | None |  |
 
 ## Tabla: users
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
