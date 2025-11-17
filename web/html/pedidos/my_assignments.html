@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mis Asignaciones</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Pedidos</div>
+      <div class="small">Mis asignaciones</div>
+    </div>
+
+    <section>
+      <div class="table-responsive">
+        <table id="assignTable">
+          <thead>
+            <tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Línea</th><th>Producto</th><th>Cantidad</th><th>Proceso</th><th>Máquina</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div style="margin-top:12px">
+      <button class="ghost" onclick="location.href='/dashboard'">Volver</button>
+    </div>
+  </main>
+
+</script>
+<script>
+(async function(){
+  const tbody = document.querySelector('#assignTable tbody');
+  function escape(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function load(){
+    tbody.innerHTML = '';
+    try{
+      const res = await fetch('/api/assignaciones');
+      if(!res.ok){ tbody.innerHTML = '<tr><td colspan="10" class="empty">No se pudieron cargar asignaciones</td></tr>'; return; }
+      const rows = await res.json();
+      if(!rows || rows.length===0){ tbody.innerHTML = '<tr><td colspan="10" class="empty">No tienes asignaciones</td></tr>'; return; }
+
+      // Group assignments by pedido
+      const groups = {};
+      rows.forEach(a => {
+        const pid = a.pedido || 'unknown';
+        groups[pid] = groups[pid] || [];
+        groups[pid].push(a);
+      });
+
+      // For each pedido create a header row and child rows grouped by product
+      Object.keys(groups).forEach(pid => {
+        const list = groups[pid];
+        // header row summarises the pedido
+        const header = document.createElement('tr');
+        header.className = 'group-header';
+        const first = list[0];
+        const cliente = first.cliente_name || '';
+        const fecha = first.fecha_taller || '';
+        const count = list.length;
+        // Build header cells to keep table column alignment (10 columns)
+        header.innerHTML = `
+          <td style="padding:10px; font-weight:600; background:#fbfdff; cursor:pointer; display:flex; align-items:center; gap:8px;">
+            <span class="arrow">▸</span>
+            <div style="flex:1">Pedido ${escape(pid)} — ${escape(cliente)} — ${escape(fecha)} — ${count} línea(s)</div>
+          </td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff"></td>
+          <td style="background:#fbfdff;text-align:right"><button class="ghost" data-p="${escape(pid)}" onclick="viewDetailsFromHeader(event)">Ver</button></td>
+        `;
+        tbody.appendChild(header);
+
+        // group by product within this pedido
+        const products = {};
+        list.forEach(a => {
+          const prod = a.producto_nombre || a.nombre || String(a.producto) || 'Sin producto';
+          products[prod] = products[prod] || [];
+          products[prod].push(a);
+        });
+
+        Object.keys(products).forEach(prodName => {
+          const proList = products[prodName];
+          // product subheader (visible when pedido expanded)
+          const pHeader = document.createElement('tr');
+          pHeader.className = 'product-header child-row';
+          pHeader.dataset.parent = pid;
+          // product header: place product name in the 'Producto' column (5th) to keep alignment
+          pHeader.innerHTML = `
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td style="padding:8px 12px;background:#fff; font-weight:600">Producto: ${escape(prodName)} — ${proList.length} proceso(s)</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          `;
+          pHeader.style.display = 'none';
+          tbody.appendChild(pHeader);
+
+          // process lines for this product
+          proList.forEach(a => {
+            const tr = document.createElement('tr');
+            tr.className = 'child-row';
+            tr.dataset.parent = pid;
+            const estadoText = a.estado == 0 ? 'Pendiente' : a.estado == 1 ? 'En proceso' : a.estado == 2 ? 'Completado' : (a.estado||'—');
+            // Only show required columns per user request: proceso, producto, estado, maquina, plus update button. Keep other columns minimal.
+            tr.innerHTML = `
+              <td>${escape(a.pedido)}</td>
+              <td>${escape(a.cliente_name)}</td>
+              <td>${escape(a.fecha_taller)}</td>
+              <td>${escape(a.idlinia)}</td>
+              <td>${escape(prodName)}</td>
+              <td>${escape(a.cantidad)}</td>
+              <td data-idproceso="${escape(a.idproceso)}">${escape(a.proceso)}</td>
+              <td>${escape(a.maquina||'')}</td>
+              <td>${escape(estadoText)}</td>
+              <td>
+                <button class="primary" data-p="${escape(a.pedido)}" data-l="${escape(a.idlinia)}" data-proc="${escape(a.proceso)}" data-idproceso="${escape(a.idproceso)}" onclick="editAssignment(event)">Actualizar</button>
+              </td>
+            `;
+            tr.style.display = 'none';
+            tbody.appendChild(tr);
+          });
+        });
+      });
+
+      // attach toggle handlers to header rows
+      tbody.querySelectorAll('.group-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const txt = header.querySelector('.arrow');
+          // find next sibling child rows until next group-header
+          let next = header.nextElementSibling;
+          const pidText = header.textContent.match(/Pedido\s([^\s]+)/);
+          // toggle state based on first child
+          const show = (next && next.style.display === 'none');
+          while(next && !next.classList.contains('group-header')){
+            if(next.classList.contains('child-row')){
+              next.style.display = show ? '' : 'none';
+            }
+            next = next.nextElementSibling;
+          }
+          if(txt) txt.textContent = show ? '▾' : '▸';
+        });
+      });
+
+    }catch(e){ console.error(e); tbody.innerHTML = '<tr><td colspan="10" class="empty">Error cargando asignaciones</td></tr>'; }
+  }
+
+  window.viewDetails = function(ev){
+    const btn = ev.currentTarget;
+    const pedido = btn.dataset.p;
+    window.location.href = `/pedidos/detalles?id=${encodeURIComponent(pedido)}`;
+  }
+
+  window.viewDetailsFromHeader = function(ev){
+    const btn = ev.currentTarget;
+    const pedido = btn.dataset.p;
+    window.location.href = `/pedidos/detalles?id=${encodeURIComponent(pedido)}`;
+  }
+
+  window.editAssignment = function(ev){
+    const btn = ev.currentTarget;
+    const pedido = btn.dataset.p;
+    const idlinia = btn.dataset.l;
+    const proc = btn.dataset.proc;
+    const idproceso = btn.parentElement.parentElement.querySelector('td[data-idproceso]').dataset.idproceso;
+    window.location.href = `/pedidos/assignment_detail?pedido=${encodeURIComponent(pedido)}&idlinia=${encodeURIComponent(idlinia)}&proceso=${encodeURIComponent(proc)}&idproceso=${encodeURIComponent(idproceso)}`;
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

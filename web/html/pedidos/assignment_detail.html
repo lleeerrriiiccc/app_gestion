@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detalle de asignación</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Pedidos</div>
+      <div class="small">Actualizar asignación</div>
+    </div>
+
+    <section class="card__body">
+      <div id="meta" class="grid">
+        <div><strong>Pedido:</strong> <span id="pedido">—</span></div>
+        <div><strong>Línea:</strong> <span id="linea">—</span></div>
+        <div><strong>Proceso:</strong> <span id="proceso">—</span></div>
+        <div><strong>Producto:</strong> <span id="producto">—</span></div>
+      </div>
+
+      <hr />
+
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="flex:1">
+          <label>Máquina (id):</label>
+          <select id="machineSelect"><option value="">Selecciona máquina (opcional)</option></select>
+        </div>
+        <div style="flex:1">
+          <label>Estado:</label>
+          <select id="stateSelect">
+            <option value="0">Pendiente</option>
+            <option value="1">En proceso</option>
+            <option value="2">Completado</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <button id="saveBtn" class="primary">Guardar</button>
+        <button class="ghost" onclick="location.href='/pedidos/assigned'">Volver</button>
+        <span id="result" style="margin-left:12px"></span>
+      </div>
+    </section>
+  </main>
+
+<script>
+(async function(){
+  const qs = new URLSearchParams(window.location.search);
+  const pedido = qs.get('pedido');
+  const idlinia = qs.get('idlinia');
+  const proceso = qs.get('proceso');
+    const idproceso = qs.get('idproceso');
+  const el = id => document.getElementById(id);
+
+  function escape(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  if(!pedido || !idlinia || !proceso){ el('result').textContent = 'Faltan parámetros en la URL.'; return; }
+  el('pedido').textContent = pedido;
+  el('linea').textContent = idlinia;
+  el('proceso').textContent = proceso;
+
+  // load assignment/pedido detail
+  try{
+    const respuesta = await fetch(`/api/pedido?id=${encodeURIComponent(pedido)}`);
+    if(!respuesta.ok){ el('result').textContent = 'No se pudo cargar el pedido.'; }
+    const data = await respuesta.json();
+    const pedidoObj = data.pedido || data;
+    const lines = data.lines || [];
+    const myLine = lines.find(l=> String(l.idlinia) === String(idlinia));
+    el('producto').textContent = myLine ? (myLine.producto_nombre || myLine.nombre || myLine.producto) : '—';
+  }catch(e){ console.error(e); }
+
+  // load machines
+  try{
+    const r = await fetch('/api/maquinas');
+    if(r.ok){ const ms = await r.json(); ms.forEach(m=>{ const o = document.createElement('option'); o.value = m.idmaquina || m.id || m.ID; o.textContent = `${m.nombre || m.nombre || o.value} ${m.proceso?('('+m.proceso+')'):''}`; document.getElementById('machineSelect').appendChild(o); }); }
+  }catch(e){ console.warn('no machines', e); }
+
+  document.getElementById('saveBtn').onclick = async ()=>{
+    const maquina = document.getElementById('machineSelect').value || null;
+    const estado = document.getElementById('stateSelect').value;
+    const payload = { pedido: pedido, idlinia: idlinia, proceso: idproceso, maquina: maquina ? Number(maquina) : null, estado: Number(estado) };
+    try{
+      const res = await fetch('/api/assignaciones/update', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      if(res.ok){ el('result').style.color='green'; el('result').textContent = 'Actualizado'; } else { const txt = await res.text(); el('result').style.color='crimson'; el('result').textContent = 'Error: '+txt; }
+    }catch(e){ el('result').style.color='crimson'; el('result').textContent = 'Error de red'; }
+  }
+
+})();
+</script>
+</body>
+</html>

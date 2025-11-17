@@ -486,6 +486,71 @@ def add_assignment(pedido, empleado, proceso, idlinia, maquina=None):
         cursor.close()
         conn.close()
 
+
+def get_assignments_for_user(username):
+    """Return assignments for a given username (employee username).
+
+    Joins assignaciones -> pedidos -> clientes -> linias_pedido -> producto to provide useful fields.
+    """
+    query = """
+    SELECT
+        a.pedido,
+        a.empleado,
+        u.user AS empleado_user,
+        proc.descripcion AS proceso,
+        a.proceso AS idproceso,
+        m.nombre AS maquina,
+        a.idlinia,
+        a.estado,
+        DATE_FORMAT(p.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+        c.name AS cliente_name,
+        lp.cantidad,
+        pr.nombre AS producto_nombre
+    FROM assignaciones a
+        INNER JOIN users u ON a.empleado = u.id
+        INNER JOIN pedidos p ON a.pedido = p.idpedido
+        INNER JOIN procesos proc ON a.proceso = proc.idproceso
+        LEFT JOIN maquinas m ON a.maquina = m.idmaquina
+        LEFT JOIN clientes c ON p.cliente = c.idcliente
+        LEFT JOIN linias_pedido lp ON a.idlinia = lp.idlinia
+        LEFT JOIN producto pr ON lp.producto = pr.idproducto
+    WHERE u.user = %s
+    ORDER BY p.fecha_taller DESC;
+    """
+    results = read_data(query, (username,))
+    return results
+
+
+def update_assignment(pedido, empleado, proceso, idlinia, maquina=None, estado=None):
+    """Update assignment record setting maquina and/or estado. Matches row by pedido, empleado, proceso and idlinia."""
+    # Build query dynamically to avoid overwriting with NULLs when values omitted
+    sets = []
+    params = []
+    if maquina is not None:
+        sets.append('maquina = %s')
+        params.append(maquina)
+    if estado is not None:
+        sets.append('estado = %s')
+        params.append(estado)
+    if not sets:
+        return
+    params.extend([pedido, empleado, proceso, idlinia])
+    query = f"UPDATE assignaciones SET {', '.join(sets)} WHERE pedido = %s AND empleado = %s AND proceso = %s AND idlinia = %s"
+    conn = connect()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, tuple(params))
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def list_machines():
+    """Return list of machines from `maquinas` table."""
+    query = "SELECT idmaquina, nombre, proceso FROM maquinas"
+    return read_data(query)
+
 def list_processes():
     """Return list of distinct processes from assignaciones table."""
     query = "SELECT DISTINCT idproceso AS id, descripcion AS nombre FROM procesos;"

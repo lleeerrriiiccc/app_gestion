@@ -78,6 +78,38 @@ thead th{background:transparent;color:var(--muted);font-weight:700}
 .process-cell label{min-width:84px;text-transform:capitalize;color:var(--muted)}
 .process-cell select{padding:8px;border-radius:8px;border:1px solid #e6e9ee}
 
+/* Group header styles for assignments list */
+.group-header td{background:#fbfdff;padding:10px;border-top:1px solid #f0f4f9}
+.group-header .arrow{display:inline-block;width:18px;margin-right:8px;transform-origin:center;transition:transform .15s}
+.child-row td{background:transparent}
+/* Align group header cells and product header */
+.group-header td {
+  background: #fbfdff;
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+.group-header td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.group-header .arrow {
+  width: 18px;
+  display: inline-block;
+  text-align: center;
+}
+.product-header td {
+  padding: 8px 12px;
+  background: #fff;
+  font-weight: 600;
+}
+.child-row td { padding: 12px 8px; }
+
+/* Product header inside group */
+.product-header td{background:#ffffff;padding:8px 12px;border-top:1px dashed #eef4fb;font-weight:600}
+
 
 /* Responsive table wrapper: allows horizontal scroll when table is wider than container */
 .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch}

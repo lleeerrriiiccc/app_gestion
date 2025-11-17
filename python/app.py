@@ -116,9 +116,10 @@ def api_users():
         except Exception:
             return jsonify([])
     try:
-        results = db.get_users('*')
+        results = db.get_users()
         # normalize list of dicts -> return only username and optional fields
         out = []
+        print('api_users results:', results)
         for r in results:
             if isinstance(r, dict):
                 out.append({'user': r.get('user') or r.get('name')})
@@ -412,6 +413,72 @@ def api_pedidos_assign():
     except Exception as e:
         print('api_pedidos_assign error:', e)
         return (f"Error saving assignment: {e}", 500)
+
+
+@app.route('/api/assignaciones', methods=['GET'])
+@login_required
+def api_assignaciones():
+    # Return assignments for the current session user by default
+    employee = request.args.get('employee')
+    try:
+        if not employee:
+            # use session username
+            user = session.get('user')
+            if not user:
+                return ("Not authenticated", 401)
+            results = db.get_assignments_for_user(user)
+        else:
+            # allow querying by username
+            results = db.get_assignments_for_user(employee)
+        return jsonify(results)
+    except Exception as e:
+        print('api_assignaciones error:', e)
+        return jsonify([]), 500
+
+
+@app.route('/api/assignaciones/update', methods=['POST'])
+@login_required
+def api_assignaciones_update():
+    payload = request.get_json(silent=True)
+    if not payload:
+        return ("Missing JSON payload", 400)
+    pedido = payload.get('pedido')
+    idlinia = payload.get('idlinia')
+    proceso = payload.get('proceso')
+    empleado = payload.get('empleado')
+    maquina = payload.get('maquina') if 'maquina' in payload else None
+    estado = payload.get('estado') if 'estado' in payload else None
+
+    # If empleado not provided, default to current session user id
+    if not empleado:
+        cur_user = session.get('user')
+        if not cur_user:
+            return ("Not authenticated", 401)
+        users = db.get_users(cur_user)
+        if not users:
+            return ("Employee not found", 404)
+        empleado = users[0].get('id')
+
+    if not all([pedido, idlinia, proceso, empleado]):
+        return ("Missing required fields (pedido, idlinia, proceso, empleado)", 400)
+
+    try:
+        db.update_assignment(pedido, empleado, proceso, idlinia, maquina, estado)
+        return ("Assignment updated", 200)
+    except Exception as e:
+        print('api_assignaciones_update error:', e)
+        return (f"Error updating assignment: {e}", 500)
+
+
+@app.route('/api/maquinas', methods=['GET'])
+@login_required
+def api_maquinas():
+    try:
+        rows = db.list_machines()
+        return jsonify(rows)
+    except Exception as e:
+        print('api_maquinas error:', e)
+        return jsonify([]), 500
     
 #API: processes list
 @app.route('/api/processes', methods=['GET'])
@@ -704,15 +771,20 @@ def pedidos_assign_page():
     pedido_id = request.args.get('id')
     return render_template('pedidos/pedidos_assign.html', pedido_id=pedido_id)
 
-#assignar pedidos
-@app.route('/pedidos/assign', methods=['GET'])
+
+@app.route('/pedidos/assigned', methods=['GET'])
 @login_required
-def pedido_assign():
-    pedido_id = request.args.get('id')
-    return render_template('pedidos/pedidos_assign.html', pedido_id=pedido_id)
+def pedidos_assigned_page():
+    # Render the assigned UI; the page's JS reads ?id=<pedido> from the query string.
+    return render_template('pedidos/my_assignments.html')
 
-
-
+@app.route('/pedidos/assignment_detail', methods=['GET'])
+@login_required
+def pedidos_assignment_detail_page():
+    pedido_id = request.args.get('pedido')
+    line_id = request.args.get('idlinea')
+    proces = request.args.get('proceso')
+    return render_template('pedidos/assignment_detail.html', pedido_id=pedido_id, line_id=line_id, proceso=proces)
 
 
 

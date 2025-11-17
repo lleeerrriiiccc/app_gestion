@@ -8,6 +8,7 @@
 | proceso | int(11) | YES | MUL | None |  |
 | maquina | int(11) | YES | MUL | None |  |
 | idlinia | int(11) | YES | MUL | None |  |
+| estado | int(11) | YES |  | None |  |
 
 ### Relaciones:
 - empleado → users.id
