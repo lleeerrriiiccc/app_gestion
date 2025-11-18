@@ -28,10 +28,13 @@ def read_data(query, params=None):
     conn.close()
     return results
 
-def write_data(query):
+def write_data(query, params=None):
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute(query)
+    if params:
+        cursor.execute(query, params)
+    else:
+        cursor.execute(query)
     conn.commit()
     cursor.close()
     conn.close()
@@ -576,22 +579,14 @@ def get_direccion_envio(address_id):
         return None
 
 
-def add_assignment(pedido, empleado, proceso, idlinia, maquina=None):
+def add_assignment(pedido, empleado, proceso, idlinia):
     """Insert an assignment into the assignaciones table.
-
     Expects: pedido (int), empleado (int), proceso (str or int), idlinia (int), maquina (int or None)
     """
-    conn = connect()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO assignaciones (pedido, empleado, proceso, idlinia, maquina) VALUES (%s, %s, %s, %s, %s)",
-            (pedido, empleado, proceso, idlinia, maquina)
-        )
-        conn.commit()
-    finally:
-        cursor.close()
-        conn.close()
+    query = "INSERT INTO assignaciones (pedido, empleado, proceso, idlinia) VALUES (%s, %s, %s, %s)"
+    write_data(query, (pedido, empleado, proceso, idlinia))
+    query = "UPDATE pedidos SET assignado = 1 WHERE idpedido = %s"
+    write_data(query, (pedido,))
 
 
 def get_assignments_for_user(username):
@@ -631,22 +626,20 @@ def get_assignments_for_user(username):
 def update_assignment(pedido, empleado, proceso, idlinia, maquina=None, estado=None):
     """Update assignment record setting maquina and/or estado. Matches row by pedido, empleado, proceso and idlinia."""
     # Build query dynamically to avoid overwriting with NULLs when values omitted
-    sets = []
-    params = []
-    if maquina is not None:
-        sets.append('maquina = %s')
-        params.append(maquina)
-    if estado is not None:
-        sets.append('estado = %s')
-        params.append(estado)
-    if not sets:
-        return
-    params.extend([pedido, empleado, proceso, idlinia])
-    query = f"UPDATE assignaciones SET {', '.join(sets)} WHERE pedido = %s AND empleado = %s AND proceso = %s AND idlinia = %s"
+    data = {"pedido": pedido, "empleado": empleado, "proceso": proceso, "idlinia": idlinia}
+    if maquina is None:
+        maquina = 'null'
+    if estado is None:
+        estado = 'null'
+    if empleado is None:
+        empleado = 'null'
+    data = {"pedido": pedido, "empleado": empleado, "proceso": proceso, "idlinia": idlinia, "maquina": maquina, "estado": estado}
+    query = f"UPDATE assignaciones SET empleado = {data['empleado']}, maquina = {data['maquina']}, estado = {data['estado']} WHERE pedido = {data['pedido']} AND proceso = {data['proceso']} AND idlinia = {data['idlinia']};"
     conn = connect()
     cursor = conn.cursor()
     try:
-        cursor.execute(query, tuple(params))
+        cursor.execute(query)
+        
         conn.commit()
     finally:
         cursor.close()
@@ -663,6 +656,38 @@ def list_processes():
     query = "SELECT DISTINCT idproceso AS id, descripcion AS nombre FROM procesos;"
     results = read_data(query)
     return results
+
+def get_assignments_for_pedido(pedido_id):
+    """Return assignments for a given pedido_id."""
+    query = """
+    SELECT
+        a.pedido,
+        a.empleado,
+        u.user AS empleado_user,
+        proc.descripcion AS proceso,
+        a.proceso AS idproceso,
+        m.nombre AS maquina,
+        a.idlinia,
+        a.estado
+    FROM assignaciones a
+        INNER JOIN procesos proc ON a.proceso = proc.idproceso
+        LEFT JOIN users u ON a.empleado = u.id
+        LEFT JOIN maquinas m ON a.maquina = m.idmaquina
+    WHERE a.pedido = %s
+    ORDER BY a.idlinia ASC;
+    """
+    results = read_data(query, (pedido_id,))
+    return results
+
+def pedido_assigned(pedido_id, proceso, idlinia):
+    """Check if a pedido has any assignments."""
+    query = "SELECT * FROM assignaciones WHERE pedido = %s AND proceso = %s AND idlinia = %s;"
+    results = read_data(query, (pedido_id, proceso, idlinia))
+    print(results)
+    if results:
+        return True
+    else:
+        return False
 
 
 

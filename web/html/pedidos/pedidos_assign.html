@@ -106,6 +106,36 @@
 
 
       renderLines(lines, employees, processes_data);
+
+      // after rendering, attempt to load existing assignments for this pedido
+      try{
+        const resp = await fetch('/api/pedidos/assigned', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pedido: pedidoId }) });
+        if (resp.ok){
+          const assigns = await resp.json();
+          if (Array.isArray(assigns) && assigns.length>0){
+            // Map assignments for quick lookup by lineId+procId
+            assigns.forEach(a => {
+              console.log(a.empleado === null);
+              const lineId = String(a.idlinia || a.id || a.linea || '');
+              const procId = String(a.idproceso || a.proceso || '');
+              // find select for this pair
+              const sel = document.querySelector(`.emp-select[data-line="${lineId}"][data-proc="${procId}"]`);
+              const cb = document.querySelector(`.proc-cb[data-line="${lineId}"][data-proc="${procId}"]`);
+              if(a.empleado === null) cb.checked = false;
+              if (sel && (a.empleado || a.empleado_id)){
+                // prefer numeric id fields
+                sel.value = a.empleado_id || a.empleado || sel.value;
+                
+              } else if (sel && a.empleado_user){
+                // fallback: try to select by username text
+                for(const o of sel.options){ if(String(o.text) === String(a.empleado_user)){ o.selected = true; break; } }
+              }
+            });
+            const note = document.getElementById('backend-notes');
+            if (note) note.textContent = 'Asignaciones existentes cargadas.';
+          }
+        }
+      }catch(e){ console.warn('Could not load existing assignments', e); }
     }
 
     function renderLines(lines, employees, processes) {
@@ -145,7 +175,7 @@
             row.style.display = 'flex';
             row.style.gap = '.5rem';
             row.style.alignItems = 'center';
-
+            
             const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.className = 'proc-cb'; cb.dataset.proc =  procid; cb.dataset.line = lineId;
             const label = document.createElement('label'); label.textContent = proc.nombre || proc;
             const select = document.createElement('select'); select.className = 'emp-select'; select.dataset.proc = procid; select.dataset.line = lineId;
@@ -187,14 +217,19 @@
           // find checkbox for this line+proc
           const cb = document.querySelector(`.proc-cb[data-line="${lineId}"][data-proc="${proc.id}"]`);
           const sel = document.querySelector(`.emp-select[data-line="${lineId}"][data-proc="${proc.id}"]`);
-          if (!cb) continue;
-          if (cb.checked){
             const employee_id = sel ? sel.value : '';
-            if (!employee_id){
-              // skip assignments without employee
+            if(cb.checked === false){
+              console.warn('Checkbox not checked, skipping assignment for line', lineId, 'proc', proc.id);
+              var payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: null };
+            }
+            else if(cb.checked === true && !employee_id){
+              window.alert('Selecciona un empleado para la línea ' + lineId + ' proceso ' + proc.nombre);
               continue;
             }
-            const payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
+            else if(cb.checked === true && employee_id){
+                          console.log(employee_id);
+              var payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
+            }
             // Attempt to POST to recommended endpoint
             try{
               const res = await fetch('/api/pedidos/assign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -209,7 +244,7 @@
             }
           }
         }
-      }
+      
 
       const rEl = el('save-result');
       if (errors.length === 0){

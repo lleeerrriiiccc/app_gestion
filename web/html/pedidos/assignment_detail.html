@@ -79,6 +79,49 @@
     if(r.ok){ const ms = await r.json(); ms.forEach(m=>{ const o = document.createElement('option'); o.value = m.idmaquina || m.id || m.ID; o.textContent = `${m.nombre || m.nombre || o.value} ${m.proceso?('('+m.proceso+')'):''}`; document.getElementById('machineSelect').appendChild(o); }); }
   }catch(e){ console.warn('no machines', e); }
 
+  // load existing assignment for this pedido/line/process (if any)
+  try{
+    const resp = await fetch('/api/pedidos/assigned', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pedido }) });
+    if(resp.ok){
+      const assigns = await resp.json();
+      if(Array.isArray(assigns) && assigns.length>0){
+        // try to find matching assignment by idlinia and proceso or idproceso
+        const match = assigns.find(a => String(a.idlinia)===String(idlinia) && (String(a.proceso)===String(idproceso) || String(a.idproceso)===String(idproceso) || String(a.proceso)===String(proceso) || String(a.descripcion)===String(proceso) || String(a.proceso)===String(a.idproceso)));
+        if(match){
+          // set machine if present (match by id first, then by name)
+          const machineSelect = document.getElementById('machineSelect');
+          if(match.maquina){
+            // match by id
+            let matched = false;
+            for(const opt of machineSelect.options){
+              if(String(opt.value) === String(match.maquina) || String(opt.text).trim() === String(match.maquina).trim() || String(opt.text).includes(String(match.maquina))){
+                opt.selected = true; matched = true; break;
+              }
+            }
+            // if match.maquina is numeric but options have names, try to match by name
+            if(!matched){
+              for(const opt of machineSelect.options){
+                if(String(opt.text).toLowerCase().includes(String(match.maquina).toLowerCase())){ opt.selected = true; matched = true; break; }
+              }
+            }
+          }
+          // set estado if present
+          if(typeof match.estado !== 'undefined' && match.estado !== null){
+            const st = document.getElementById('stateSelect');
+            st.value = String(match.estado);
+          }
+
+          // show assigned employee if available
+          if(match.empleado_user || match.empleado){
+            const meta = document.getElementById('meta');
+            const div = document.createElement('div'); div.innerHTML = `<strong>Asignado a:</strong> <span id="assigned_user">${escape(match.empleado_user || match.empleado)}</span>`;
+            meta.appendChild(div);
+          }
+        }
+      }
+    }
+  }catch(e){ console.warn('no existing assignment', e); }
+
   document.getElementById('saveBtn').onclick = async ()=>{
     const maquina = document.getElementById('machineSelect').value || null;
     const estado = document.getElementById('stateSelect').value;

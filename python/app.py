@@ -416,15 +416,39 @@ def api_pedidos_assign():
     empleado = payload.get('empleado') or payload.get('employee_id') or payload.get('empleado_id')
     maquina = payload.get('maquina') if 'maquina' in payload else None
 
-    if not pedido or not idlinia or not proceso or not empleado:
+    if not pedido or not idlinia or not proceso:
         return ("Missing required fields (pedido, idlinia, proceso, empleado)", 400)
 
     try:
-        db.add_assignment(pedido, empleado, proceso, idlinia, maquina)
+        if db.pedido_assigned(pedido, proceso, idlinia):
+            db.update_assignment(pedido, empleado, proceso, idlinia)
+        else:
+            db.add_assignment(pedido, empleado, proceso, idlinia)
         return ("Assignment saved", 201)
     except Exception as e:
         print('api_pedidos_assign error:', e)
         return (f"Error saving assignment: {e}", 500)
+    
+@app.route('/api/pedidos/assigned', methods=['POST'])
+@login_required
+def api_pedidos_assigned():
+    # Accept JSON body or form data / query param for flexibility
+    pedido = None
+    if request.is_json:
+        pedido = request.json.get('pedido') or request.json.get('id')
+    else:
+        pedido = request.form.get('pedido') or request.args.get('pedido')
+
+    if not pedido:
+        return jsonify([]), 400
+
+    try:
+        results = db.get_assignments_for_pedido(pedido)
+        return jsonify(results)
+    except Exception as e:
+        print('api_pedidos_assigned error:', e)
+        return jsonify([]), 500
+
 
 
 @app.route('/api/assignaciones', methods=['GET'])
