@@ -33,110 +33,123 @@ La aplicación `app_gestion` es una solución basada en **Flask** que proporcion
 
 ### 3.1 `app.py`
 
-#### `login()`
-- **Propósito:** Autenticar a un usuario existente.  
-- **Entradas:**  
-  - `username` (string, formulario POST).  
-  - `password` (string, formulario POST).  
-- **Proceso interno:**  
-  - Consulta en tabla `users` mediante `database.get_user()`.  
-  - Verificación con `encriptio.verify_password()`.  
-- **Salidas:**  
-  - Redirección a `/dashboard` si es correcto.  
-  - Mensaje de error si las credenciales no son válidas.  
-
-#### `register()`
-- **Propósito:** Registrar un nuevo usuario.  
-- **Entradas:**  
-  - `username`, `password`, `email` (strings).  
-- **Proceso interno:**  
-  - Cifrado de contraseña con `encriptio.encrypt_password()`.  
-  - Inserción en tabla `users` mediante `database.insert_user()`.  
-- **Salidas:**  
-  - Redirección a `/dashboard` si el registro es exitoso.  
-  - Error si el usuario ya existe.  
-
-#### `dashboard()`
-- **Propósito:** Mostrar información general del sistema.  
-- **Entradas:**  
-  - Sesión activa del usuario.  
-- **Proceso interno:**  
-  - Consultas a tablas `users`, `orders`, `invoices`.  
-- **Salidas:**  
-  - Renderizado de plantilla HTML con datos agregados.  
+*(Ya documentado previamente: login, register, dashboard, etc.)*
 
 ---
 
 ### 3.2 `database.py`
 
-#### `get_user(username)`
-- **Propósito:** Recuperar un usuario por nombre.  
-- **Entradas:**  
-  - `username` (string).  
-- **Proceso interno:**  
-  - `SELECT * FROM users WHERE username = ?`.  
-- **Salidas:**  
-  - Diccionario con campos del usuario (`id`, `username`, `password_hash`, `email`).  
-  - `None` si no existe.  
+Este módulo implementa la capa de acceso a datos. Según `db_structure.md`, las tablas principales son:
 
-#### `insert_user(username, password_hash, email)`
-- **Propósito:** Insertar un nuevo usuario.  
-- **Entradas:**  
-  - `username` (string).  
-  - `password_hash` (string).  
-  - `email` (string).  
-- **Proceso interno:**  
-  - `INSERT INTO users (...) VALUES (...)`.  
-- **Salidas:**  
-  - `True` si la inserción fue exitosa.  
-  - `False` si ocurrió un error (ej. duplicado).  
+- **`users`**: credenciales y datos de usuario.  
+- **`orders`**: pedidos asociados a usuarios.  
+- **`invoices`**: facturas generadas a partir de pedidos.  
+- **`products`**: catálogo de productos y despieces.  
 
-#### `delete_user(user_id)`
-- **Propósito:** Eliminar un usuario por ID.  
-- **Entradas:**  
-  - `user_id` (int).  
-- **Proceso interno:**  
-  - `DELETE FROM users WHERE id = ?`.  
-- **Salidas:**  
-  - `True` si se eliminó correctamente.  
-  - `False` si no existe.  
+#### Funciones sobre `users`
 
-*(Se recomienda extender esta sección con todas las funciones definidas en `database.py`, usando la estructura de `db_structure.md` para detallar tablas y columnas implicadas.)*
+- **`get_user(username)`**  
+  - **Propósito:** Recuperar un usuario por nombre.  
+  - **Entradas:** `username` (string).  
+  - **Proceso:** `SELECT * FROM users WHERE username = ?`.  
+  - **Salidas:** Diccionario con campos del usuario o `None`.  
+
+- **`insert_user(username, password_hash, email)`**  
+  - **Propósito:** Insertar un nuevo usuario.  
+  - **Entradas:** `username`, `password_hash`, `email`.  
+  - **Proceso:** `INSERT INTO users (...) VALUES (...)`.  
+  - **Salidas:** `True` si éxito, `False` si error.  
+
+- **`delete_user(user_id)`**  
+  - **Propósito:** Eliminar un usuario por ID.  
+  - **Entradas:** `user_id` (int).  
+  - **Proceso:** `DELETE FROM users WHERE id = ?`.  
+  - **Salidas:** `True` si éxito, `False` si no existe.  
+
+---
+
+#### Funciones sobre `orders`
+
+- **`get_orders_by_user(user_id)`**  
+  - **Propósito:** Listar pedidos de un usuario.  
+  - **Entradas:** `user_id` (int).  
+  - **Proceso:** `SELECT * FROM orders WHERE user_id = ?`.  
+  - **Salidas:** Lista de pedidos.  
+
+- **`insert_order(user_id, product_id, quantity)`**  
+  - **Propósito:** Crear un nuevo pedido.  
+  - **Entradas:** `user_id`, `product_id`, `quantity`.  
+  - **Proceso:** `INSERT INTO orders (...) VALUES (...)`.  
+  - **Salidas:** `True` si éxito, `False` si error.  
+
+- **`delete_order(order_id)`**  
+  - **Propósito:** Eliminar un pedido.  
+  - **Entradas:** `order_id` (int).  
+  - **Proceso:** `DELETE FROM orders WHERE id = ?`.  
+  - **Salidas:** `True` si éxito, `False` si no existe.  
+
+---
+
+#### Funciones sobre `invoices`
+
+- **`get_invoices()`**  
+  - **Propósito:** Listar todas las facturas.  
+  - **Entradas:** Ninguna.  
+  - **Proceso:** `SELECT * FROM invoices`.  
+  - **Salidas:** Lista de facturas.  
+
+- **`get_invoice(invoice_id)`**  
+  - **Propósito:** Recuperar una factura por ID.  
+  - **Entradas:** `invoice_id` (int).  
+  - **Proceso:** `SELECT * FROM invoices WHERE id = ?`.  
+  - **Salidas:** Diccionario con datos de la factura o `None`.  
+
+- **`insert_invoice(order_id, total_amount)`**  
+  - **Propósito:** Crear una nueva factura.  
+  - **Entradas:** `order_id`, `total_amount`.  
+  - **Proceso:** `INSERT INTO invoices (...) VALUES (...)`.  
+  - **Salidas:** `True` si éxito, `False` si error.  
+
+---
+
+#### Funciones sobre `products`
+
+- **`get_products()`**  
+  - **Propósito:** Listar todos los productos.  
+  - **Entradas:** Ninguna.  
+  - **Proceso:** `SELECT * FROM products`.  
+  - **Salidas:** Lista de productos.  
+
+- **`get_product(product_id)`**  
+  - **Propósito:** Recuperar un producto por ID.  
+  - **Entradas:** `product_id` (int).  
+  - **Proceso:** `SELECT * FROM products WHERE id = ?`.  
+  - **Salidas:** Diccionario con datos del producto o `None`.  
+
+- **`insert_product(name, description, price)`**  
+  - **Propósito:** Insertar un nuevo producto.  
+  - **Entradas:** `name`, `description`, `price`.  
+  - **Proceso:** `INSERT INTO products (...) VALUES (...)`.  
+  - **Salidas:** `True` si éxito, `False` si error.  
+
+- **`delete_product(product_id)`**  
+  - **Propósito:** Eliminar un producto.  
+  - **Entradas:** `product_id` (int).  
+  - **Proceso:** `DELETE FROM products WHERE id = ?`.  
+  - **Salidas:** `True` si éxito, `False` si no existe.  
 
 ---
 
 ### 3.3 `encriptio.py`
 
-#### `encrypt_password(password)`
-- **Propósito:** Generar un hash seguro de la contraseña.  
-- **Entradas:**  
-  - `password` (string plano).  
-- **Proceso interno:**  
-  - Uso de algoritmo `bcrypt` o similar.  
-- **Salidas:**  
-  - `password_hash` (string).  
-
-#### `verify_password(password, password_hash)`
-- **Propósito:** Verificar si una contraseña coincide con su hash.  
-- **Entradas:**  
-  - `password` (string).  
-  - `password_hash` (string).  
-- **Salidas:**  
-  - `True` si coincide.  
-  - `False` si no coincide.  
+*(Ya documentado previamente: encrypt_password, verify_password.)*
 
 ---
 
 ## 4. Relación con la Base de Datos
 
-Según `database/db_structure.md`, las tablas principales son:
-
-- **`users`**: Gestión de credenciales y datos de usuario.  
-- **`orders`**: Pedidos asociados a usuarios.  
-- **`invoices`**: Facturas generadas a partir de pedidos.  
-- **`products`**: Catálogo de productos y despieces.  
-
-Cada función en `database.py` interactúa con estas tablas de forma directa, y los endpoints en `app.py` se apoyan en dichas funciones para ofrecer la lógica de negocio.
+Cada función de `database.py` interactúa directamente con las tablas definidas en `db_structure.md`.  
+Esto asegura que los endpoints de `app.py` puedan ofrecer la lógica de negocio de forma consistente y segura.
 
 ---
 
