@@ -919,7 +919,9 @@ def products_add():
 @login_required
 def api_piezas():
     try:
-        rows = db.list_piezas()
+        name = request.args.get('name')
+        code = request.args.get('code')
+        rows = db.list_piezas(name=name, code=code)
         return jsonify(rows)
     except Exception as e:
         print('api_piezas error', e)
@@ -944,6 +946,12 @@ def api_producto_piezas():
 @login_required
 def products_despiece():
     return render_template('productos/product_despiece.html')
+
+@app.route('/piezas/list', methods=['GET'])
+@login_required
+def piezas_lsit():
+    return render_template('productos/piezas/piezas_list.html')
+
 
 
 

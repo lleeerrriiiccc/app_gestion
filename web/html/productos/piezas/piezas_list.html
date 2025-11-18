@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Piezas — Lista</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="page">
+    <header class="page__header">
+      <a class="btn" href="/dashboard">← Volver</a>
+      <h1>Piezas</h1>
+    </header>
+
+    <main class="page__content">
+      <section class="card card--wide">
+        <div class="card__header module-header"><div class="badge">Productos</div><h2>Listado de piezas por producto</h2></div>
+        <div class="card__body">
+          <div class="grid" style="align-items:end; gap:.75rem;">
+            <div style="min-width:240px; position:relative">
+              <label>Filtrar producto (nombre)</label>
+              <input id="product-search" autocomplete="off" placeholder="Nombre producto (autocompletar)" />
+              <div id="product-ac" class="autocomplete" style="position:absolute;left:0;right:0;z-index:30;background:#fff;border:1px solid #e6e6e6;display:none;max-height:220px;overflow:auto;"></div>
+            </div>
+            <div style="position:relative">
+              <label>Filtrar por código de pieza</label>
+              <input id="filter-code" autocomplete="off" placeholder="Código pieza" />
+              <div id="code-ac" class="autocomplete" style="position:absolute;left:0;right:0;z-index:30;background:#fff;border:1px solid #e6e6e6;display:none;max-height:220px;overflow:auto;"></div>
+            </div>
+            <div>
+              <label>Filtrar por nombre de pieza</label>
+              <input id="filter-name" placeholder="Nombre pieza" />
+            </div>
+            <div style="display:flex; gap:.5rem;">
+              <button id="btn-search" class="primary">Aplicar</button>
+              <button id="btn-clear" class="ghost">Limpiar</button>
+              <button id="btn-loadall" class="ghost">Cargar todas</button>
+            </div>
+          </div>
+
+          <hr />
+
+          <div id="list-area">Cargando...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+
+    function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>\"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    async function searchProducts(q){
+      try{
+        const url = '/api/products?q=' + encodeURIComponent(q || '*');
+        console.log(q);
+        const r = await fetch(url, {cache:'no-store'});
+        if(!r.ok) return [];
+        return await r.json();
+      }catch(e){ console.warn(e); return []; }
+    }
+
+    async function getPiezasByProducto(pid){
+      try{
+        const url = '/api/producto/piezas?id=' + encodeURIComponent(pid);
+        const r = await fetch(url, {cache:'no-store'});
+        if(!r.ok) return [];
+        return await r.json();
+      }catch(e){ console.warn(e); return []; }
+    }
+
+    function groupRender(productsWithPieces, codeFilter, nameFilter){
+      const container = el('list-area');
+      if(!productsWithPieces || productsWithPieces.length===0){ container.innerHTML = '<div style="color:#666">No hay piezas.</div>'; return; }
+      const frag = document.createDocumentFragment();
+      productsWithPieces.forEach(p=>{
+        const header = document.createElement('div'); header.className = 'group-header';
+        header.innerHTML = `<strong>${escapeHtml(p.nombre || p.name || ('Producto ' + p.idproducto || p.id))}</strong> <small style="margin-left:8px;color:#666">${escapeHtml(p.codigo||'')}</small>`;
+        frag.appendChild(header);
+
+        const table = document.createElement('table'); table.className = 'table-responsive';
+        const thead = document.createElement('thead'); thead.innerHTML = '<tr><th>ID</th><th>Nombre</th><th>Código</th><th>Plano</th></tr>';
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        const piezas = p.piezas || [];
+        const filtered = piezas.filter(z=>{
+          if(codeFilter && String(z.codigo||'').toLowerCase().indexOf(codeFilter)===-1) return false;
+          if(nameFilter && String(z.name||'').toLowerCase().indexOf(nameFilter)===-1) return false;
+          return true;
+        });
+        if(filtered.length===0){ const tr = document.createElement('tr'); tr.innerHTML = '<td colspan="4" style="color:#666">No hay piezas para este producto con los filtros aplicados.</td>'; tbody.appendChild(tr); }
+        filtered.forEach(pi=>{
+          const tr = document.createElement('tr');
+          const id = pi.idpiezas || pi.id || '';
+          const nombre = pi.name || '';
+          const codigo = pi.codigo || '';
+          const plano = pi.plano ? `<a href="/pdf/planos/piezas/${encodeURIComponent(pi.plano)}" target="_blank">Ver plano</a>` : '';
+          tr.innerHTML = `<td>${escapeHtml(String(id))}</td><td>${escapeHtml(nombre)}</td><td>${escapeHtml(codigo)}</td><td>${plano}</td>`;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        frag.appendChild(table);
+      });
+      container.innerHTML = ''; container.appendChild(frag);
+    }
+
+    // Load for specific product id
+    async function loadForProduct(product){
+      const piezas = await getPiezasByProducto(product.idproducto || product.id);
+      return Object.assign({}, product, { piezas });
+    }
+
+    async function doSearch(){
+      el('list-area').textContent = 'Cargando...';
+      const prodQuery = el('product-search').value.trim();
+      const codeFilter = (el('filter-code').value || '').toLowerCase();
+      const nameFilter = (el('filter-name').value || '').toLowerCase();
+
+      // if product query empty, don't load all products by default; ask user to click 'Cargar todas' or enter a product
+      if(!prodQuery){ el('list-area').innerHTML = '<div style="color:#666">Introduce nombre de producto o pulsa "Cargar todas".</div>'; return; }
+
+      const prods = await searchProducts(prodQuery);
+      if(!prods || prods.length===0){ el('list-area').innerHTML = '<div style="color:#666">No se encontraron productos.</div>'; return; }
+      // load piezas for each product in parallel
+      const promises = prods.map(loadForProduct);
+      const results = await Promise.all(promises);
+      groupRender(results, codeFilter, nameFilter);
+    }
+
+    // load all products and their piezas (may be heavy)
+    async function loadAll(){
+      el('list-area').textContent = 'Cargando todas las piezas (puede tardar)...';
+      const prods = await searchProducts('*');
+      const promises = prods.map(loadForProduct);
+      const results = await Promise.all(promises);
+      const codeFilter = (el('filter-code').value || '').toLowerCase();
+      const nameFilter = (el('filter-name').value || '').toLowerCase();
+      groupRender(results, codeFilter, nameFilter);
+    }
+
+    // Autocomplete helpers for products and codes
+    function hideAc(id){ const a = el(id); if(a) a.style.display='none'; }
+    function showAc(id, items, render){
+      const ac = el(id); ac.innerHTML='';
+      if(!items || items.length===0){ ac.style.display='none'; return; }
+      items.forEach(it=>{
+        const div = document.createElement('div');
+        div.className='ac-item';
+        div.style.padding='6px 8px'; div.style.cursor='pointer'; div.style.borderBottom='1px solid #f1f1f1';
+        div.innerHTML = render(it);
+        // store full payload on element for reliable selection
+        try{ div.dataset.payload = JSON.stringify(it); }catch(e){}
+        ac.appendChild(div);
+      });
+      ac.style.display='block';
+    }
+
+    let prodTimer = null;
+    el('product-search').addEventListener('input', (e)=>{
+      clearTimeout(prodTimer);
+      el('product-ac').dataset.selected = '';
+      prodTimer = setTimeout(async ()=>{
+        const q = e.target.value.trim();
+        if(!q){ hideAc('product-ac'); return; }
+        const items = await searchProducts(q);
+        showAc('product-ac', items.slice(0,40), p=>`<strong>${escapeHtml(p.nombre||p.name||p.nombre||'')}</strong>`);
+      }, 250);
+    });
+
+    // when user selects a suggestion, populate input and store selected id
+    el('product-ac').addEventListener('click', async (ev)=>{
+      const item = ev.target.closest('.ac-item');
+      if(!item) return;
+      const payload = item.dataset.payload;
+      if(!payload) return;
+      let sel = null;
+      try{ sel = JSON.parse(payload); }catch(e){ sel = null; }
+      if(!sel) return;
+      // set input text and store selected product object
+      const display = sel.nombre || sel.name || sel.nombre_producto || sel.nombre || sel.idproducto || sel.id || '';
+      el('product-search').value = display;
+      el('product-search').dataset.product = JSON.stringify(sel);
+      hideAc('product-ac');
+
+      // populate code suggestions based on piezas for this product
+      try{
+        const piezas = await getPiezasByProducto(sel.idproducto || sel.id);
+        const codes = (piezas||[]).map(px=>({codigo: px.codigo, name: px.name, idpiezas: px.idpiezas}));
+        // make unique by codigo
+        const seen = new Set();
+        const uniq = [];
+        codes.forEach(c=>{ if(c && c.codigo && !seen.has(c.codigo)){ seen.add(c.codigo); uniq.push(c); } });
+        if(uniq.length>0){ showAc('code-ac', uniq.slice(0,40), c=>`<strong>${escapeHtml(c.codigo||'')}</strong> <small style="color:#666"> ${escapeHtml(c.name||'')}</small>`); }
+      }catch(e){ /* ignore */ }
+    });
+
+    // code autocomplete (tries /api/piezas?q=, fallback to all piezas)
+    let codeTimer = null;
+    el('filter-code').addEventListener('input', (e)=>{
+      clearTimeout(codeTimer);
+      el('code-ac').dataset.selected = '';
+      codeTimer = setTimeout(async ()=>{
+        const q = e.target.value.trim();
+        if(!q){ hideAc('code-ac'); return; }
+        try{
+          const r = await fetch('/api/piezas?code='+encodeURIComponent(q));
+          let items = [];
+          if(r.ok){ items = await r.json(); }
+          if(!items || items.length===0){ // fallback: fetch all and filter
+            const r2 = await fetch('/api/piezas');
+            if(r2.ok){ const all = await r2.json(); items = (all||[]).filter(x=>String(x.codigo_pieza||'').toLowerCase().indexOf(q.toLowerCase())!==-1); }
+          }
+          showAc('code-ac', items.slice(0,40), c=>`<strong>${escapeHtml(c.codigo_pieza||c.code||'')}</strong> <small style="color:#666"> ${escapeHtml(c.name||'')}</small>`);
+        }catch(e){ console.warn(e); hideAc('code-ac'); }
+      }, 250);
+    });
+
+    el('code-ac').addEventListener('click', async (ev)=>{
+      const item = ev.target.closest('.ac-item');
+      if(!item) return;
+      const payload = item.dataset.payload;
+      if(!payload) return;
+      let sel = null;
+      try{ sel = JSON.parse(payload); }catch(e){ sel = null; }
+      if(!sel) return;
+      // sel may come from /api/piezas and include producto info
+      const codeVal = sel.codigo_pieza || sel.codigo || sel.code || sel.codigo;
+      const nameVal = sel.nombre_pieza || sel.name || sel.name;
+      el('filter-code').value = codeVal || '';
+      // if producto info available, populate product-search and dataset
+      if(sel.idproducto || sel.nombre_producto || sel.codigo_producto){
+        const productObj = { idproducto: sel.idproducto, nombre: sel.nombre_producto, codigo: sel.codigo_producto };
+        el('product-search').value = sel.nombre_producto || el('product-search').value;
+        el('product-search').dataset.product = JSON.stringify(productObj);
+      }
+      hideAc('code-ac');
+    });
+
+    el('btn-search').addEventListener('click', doSearch);
+    el('btn-clear').addEventListener('click', ()=>{ el('product-search').value=''; el('filter-code').value=''; el('filter-name').value=''; el('list-area').innerHTML=''; });
+    el('btn-loadall').addEventListener('click', loadAll);
+
+    // initial state
+    el('list-area').textContent = 'Puedes filtrar por producto o pulsar "Cargar todas".';
+  </script>
+</body>
+</html>

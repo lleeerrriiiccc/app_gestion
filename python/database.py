@@ -408,10 +408,42 @@ def add_despiece(producto_id, pieza_id):
     cursor.close()
     conn.close()
 
-def list_piezas():
-    """Return list of piezas (idpiezas, name, codigo)."""
-    query = "SELECT idpiezas, name, codigo FROM piezas"
-    return read_data(query)
+def list_piezas(name=None, code=None):
+    if name is None and code is None:
+        """Return list of piezas (idpiezas, name, codigo)."""
+        query = "SELECT idpiezas, name, codigo FROM piezas"
+    if name is None and code is not None:
+        """Return list of piezas filtered by code."""
+        query = """
+        SELECT 
+            p.idpiezas,
+            p.name AS nombre_pieza,
+            p.codigo AS codigo_pieza,
+            pr.idproducto,
+            pr.nombre AS nombre_producto,
+            pr.codigo AS codigo_producto
+        FROM piezas p
+        INNER JOIN despiece_productos dp ON p.idpiezas = dp.pieza
+        INNER JOIN producto pr ON dp.producto = pr.idproducto
+        WHERE p.codigo LIKE %s
+        """
+        return read_data(query, (f'%{code}%',))
+    if name is not None and code is None:
+        """Return list of piezas filtered by name."""
+        query = """
+        SELECT 
+            p.idpiezas,
+            p.name AS nombre_pieza,
+            p.codigo AS codigo_pieza,
+            pr.idproducto,
+            pr.nombre AS nombre_producto,
+            pr.codigo AS codigo_producto
+        FROM piezas p
+        INNER JOIN despiece_productos dp ON p.idpiezas = dp.pieza
+        INNER JOIN producto pr ON dp.producto = pr.idproducto
+        WHERE p.name LIKE %s
+        """
+        return read_data(query, (f'%{name}%',))
 
 
 def get_piezas_by_producto(producto_id):
