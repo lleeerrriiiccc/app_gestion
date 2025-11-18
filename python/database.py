@@ -364,8 +364,8 @@ def products_list(q='*', idproducto=None):
     cursor = conn.cursor(dictionary=True)
     try:
         if q and q != '*':
-            term = q + '%'
-            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto WHERE nombre LIKE %s LIMIT 200", (term,))
+            term = '%' + q + '%'
+            cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto WHERE nombre LIKE %s OR codigo LIKE %s LIMIT 200", (term, term))
         elif idproducto is not None:
             cursor.execute("SELECT idproducto, nombre, descripcion, codigo, precio, planos FROM producto WHERE idproducto = %s LIMIT 200", (idproducto,))
         else:
