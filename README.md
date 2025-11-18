@@ -1,172 +1,238 @@
-# Documentación Técnica — Aplicación Flask `app_gestion`
+# app_gestion — Documentación completa
 
-## 1. Descripción General
-La aplicación `app_gestion` es una solución basada en **Flask** que proporciona funcionalidades de gestión de usuarios, autenticación y operaciones sobre una base de datos relacional. El flujo principal se articula en torno a tres módulos clave:
+Este repositorio contiene una aplicación web ligera basada en Flask para gestión de clientes, pedidos, facturas, productos y despieces. El objetivo es proporcionar una interfaz sencilla (HTML + vanilla JS) y una capa de API REST mínima para operaciones CRUD y flujos de asignación.
 
-- **`python/app.py`**: Punto de entrada de la aplicación Flask. Define los endpoints, gestiona las sesiones y coordina la lógica de negocio.
-- **`python/database.py`**: Encapsula la conexión y operaciones con la base de datos. Proporciona funciones para consultas, inserciones y actualizaciones.
-- **`python/encriptio.py`**: Implementa utilidades de cifrado y verificación de contraseñas, garantizando la seguridad de las credenciales de usuario.
-
----
-
-## 2. Flujo de la Aplicación
-
-1. **Inicio**  
-   - Se inicializa la instancia de Flask y se configuran las rutas.  
-   - Se establece la conexión con la base de datos a través de `database.py`.
-
-2. **Autenticación**  
-   - **Login (`/login`)**: Valida credenciales contra la tabla `users`.  
-   - **Registro (`/register`)**: Inserta un nuevo usuario con contraseña cifrada.  
-
-3. **Dashboard (`/dashboard`)**  
-   - Ruta protegida por sesión.  
-   - Muestra información agregada de la base de datos (usuarios, pedidos, facturas).  
-
-4. **Operaciones de gestión**  
-   - Endpoints para visualizar facturas, pedidos y despieces.  
-   - Eliminación y actualización de registros.  
+Contenido de la documentación:
+- Resumen y objetivos
+- Requisitos y ejecución
+- Estructura del proyecto
+- Descripción detallada de módulos y funciones
+- Endpoints HTTP y contratos API
+- Base de datos (resumen y relaciones)
+- Plantillas y UX importantes
+- Seguridad, pruebas y despliegue
 
 ---
 
-## 3. Detalle de Módulos y Funciones
+## Resumen y objetivos
 
-### 3.1 `app.py`
+La aplicación soporta:
+- Autenticación (login/logout/registro)
+- Gestión de clientes, contactos y direcciones
+- Gestión de pedidos y sus líneas
+- Gestión de productos y piezas (despiece)
+- Subida y visualización de facturas y planos
+- Asignaciones de procesos a empleados y máquinas
 
-*(Ya documentado previamente: login, register, dashboard, etc.)*
-
----
-
-### 3.2 `database.py`
-
-Este módulo implementa la capa de acceso a datos. Según `db_structure.md`, las tablas principales son:
-
-- **`users`**: credenciales y datos de usuario.  
-- **`orders`**: pedidos asociados a usuarios.  
-- **`invoices`**: facturas generadas a partir de pedidos.  
-- **`products`**: catálogo de productos y despieces.  
-
-#### Funciones sobre `users`
-
-- **`get_user(username)`**  
-  - **Propósito:** Recuperar un usuario por nombre.  
-  - **Entradas:** `username` (string).  
-  - **Proceso:** `SELECT * FROM users WHERE username = ?`.  
-  - **Salidas:** Diccionario con campos del usuario o `None`.  
-
-- **`insert_user(username, password_hash, email)`**  
-  - **Propósito:** Insertar un nuevo usuario.  
-  - **Entradas:** `username`, `password_hash`, `email`.  
-  - **Proceso:** `INSERT INTO users (...) VALUES (...)`.  
-  - **Salidas:** `True` si éxito, `False` si error.  
-
-- **`delete_user(user_id)`**  
-  - **Propósito:** Eliminar un usuario por ID.  
-  - **Entradas:** `user_id` (int).  
-  - **Proceso:** `DELETE FROM users WHERE id = ?`.  
-  - **Salidas:** `True` si éxito, `False` si no existe.  
+Diseño: servidor Flask que sirve plantillas HTML estáticas en `web/html` y expone APIs bajo `/api/*` para que los scripts client-side realicen acciones.
 
 ---
 
-#### Funciones sobre `orders`
+## Requisitos y ejecución
 
-- **`get_orders_by_user(user_id)`**  
-  - **Propósito:** Listar pedidos de un usuario.  
-  - **Entradas:** `user_id` (int).  
-  - **Proceso:** `SELECT * FROM orders WHERE user_id = ?`.  
-  - **Salidas:** Lista de pedidos.  
+Requisitos básicos:
+- Python 3.8+
+- Dependencias listadas en `requirements.txt` (Flask, mysql-connector-python o mysqlclient, flask-cors, werkzeug, ...)
 
-- **`insert_order(user_id, product_id, quantity)`**  
-  - **Propósito:** Crear un nuevo pedido.  
-  - **Entradas:** `user_id`, `product_id`, `quantity`.  
-  - **Proceso:** `INSERT INTO orders (...) VALUES (...)`.  
-  - **Salidas:** `True` si éxito, `False` si error.  
+Arrancar en desarrollo (PowerShell, desde la raíz del repo):
 
-- **`delete_order(order_id)`**  
-  - **Propósito:** Eliminar un pedido.  
-  - **Entradas:** `order_id` (int).  
-  - **Proceso:** `DELETE FROM orders WHERE id = ?`.  
-  - **Salidas:** `True` si éxito, `False` si no existe.  
+```powershell
+python .\python\app.py
+```
+
+La app corre por defecto en `0.0.0.0:80` con `debug=True` en `app.py` — cambiar en producción.
+
+Archivo de conexión a la DB: `data/conection.json`.
 
 ---
 
-#### Funciones sobre `invoices`
+## Estructura del proyecto (resumen)
 
-- **`get_invoices()`**  
-  - **Propósito:** Listar todas las facturas.  
-  - **Entradas:** Ninguna.  
-  - **Proceso:** `SELECT * FROM invoices`.  
-  - **Salidas:** Lista de facturas.  
-
-- **`get_invoice(invoice_id)`**  
-  - **Propósito:** Recuperar una factura por ID.  
-  - **Entradas:** `invoice_id` (int).  
-  - **Proceso:** `SELECT * FROM invoices WHERE id = ?`.  
-  - **Salidas:** Diccionario con datos de la factura o `None`.  
-
-- **`insert_invoice(order_id, total_amount)`**  
-  - **Propósito:** Crear una nueva factura.  
-  - **Entradas:** `order_id`, `total_amount`.  
-  - **Proceso:** `INSERT INTO invoices (...) VALUES (...)`.  
-  - **Salidas:** `True` si éxito, `False` si error.  
+- `python/` : código servidor (app.py, database.py, encription.py, helpers)
+- `web/html/` : plantillas HTML organizadas por módulo (`productos`, `pedidos`, `clientes`, `users`, `facturas`, ...)
+- `web/css/` : estilo principal `main.css`
+- `files/` : uploads (facturas, planos)
+- `data/` : configuración local (`conection.json`, `exclusions.json`)
+- `database/` : documentación / generadores (ej. `db_structure.md`, `generate_docs.py`)
 
 ---
 
-#### Funciones sobre `products`
+## Módulos principales y funciones
 
-- **`get_products()`**  
-  - **Propósito:** Listar todos los productos.  
-  - **Entradas:** Ninguna.  
-  - **Proceso:** `SELECT * FROM products`.  
-  - **Salidas:** Lista de productos.  
+Se exponen aquí las responsabilidades principales y un resumen de las funciones más relevantes. Para código detallado, revisar `python/app.py` y `python/database.py`.
 
-- **`get_product(product_id)`**  
-  - **Propósito:** Recuperar un producto por ID.  
-  - **Entradas:** `product_id` (int).  
-  - **Proceso:** `SELECT * FROM products WHERE id = ?`.  
-  - **Salidas:** Diccionario con datos del producto o `None`.  
+### `python/app.py` (Flask app)
 
-- **`insert_product(name, description, price)`**  
-  - **Propósito:** Insertar un nuevo producto.  
-  - **Entradas:** `name`, `description`, `price`.  
-  - **Proceso:** `INSERT INTO products (...) VALUES (...)`.  
-  - **Salidas:** `True` si éxito, `False` si error.  
+Responsabilidad: definir rutas que sirven plantillas y endpoints JSON, controlar sesiones y validar parámetros.
 
-- **`delete_product(product_id)`**  
-  - **Propósito:** Eliminar un producto.  
-  - **Entradas:** `product_id` (int).  
-  - **Proceso:** `DELETE FROM products WHERE id = ?`.  
-  - **Salidas:** `True` si éxito, `False` si no existe.  
+Rutas / endpoints importantes (resumen):
+- `/login` (GET, POST): pagina de login / autenticación.
+- `/logout`: limpia sesión.
+- `/dashboard`: página principal tras login.
+- `/products`, `/products/add`, `/products/detail`: gestión de productos y formulario de despiece.
+- `/piezas/list` : nueva página para listar piezas agrupadas por producto.
+- `/pedidos`, `/pedidos/add`, `/pedidos/detalles`, `/pedidos/assign`, `/pedidos/assignment_detail`, `/pedidos/delete`: gestión de pedidos y flujo de asignación.
+- `/api/products?q=`: devuelve productos (usa `db.products_list`).
+- `/api/piezas?name=&code=`: devuelve piezas filtradas (usa `db.list_piezas`).
+- `/api/producto/piezas?id=`: devuelve piezas de un producto (usa `db.get_piezas_by_producto`).
+- `/api/pedidos`, `/api/pedidos/<id>/lines`: listados y líneas de pedidos.
+- `/api/pedidos/assign`: crea/actualiza asignaciones por línea/proceso.
+- `/api/pedidos/assigned`: devuelve asignaciones de un pedido (usa `db.get_assignments_for_pedido`).
+- `/api/maquinas`, `/api/processes`: listas de máquinas y procesos.
+
+Notas:
+- Muchas rutas aceptan tanto `form` como JSON (`request.get_json(silent=True)`), lo que facilita llamadas desde fetch() en el frontend.
+- Rutas estáticas para servir archivos: `/css/*`, `/img/*`, y `/pdf/planos/...`.
+
+### `python/database.py` (capa de datos)
+
+Responsabilidad: conexión a MySQL, helpers read/write y funciones específicas para cada entidad.
+
+Funciones esenciales (resumen y comportamiento esperado):
+
+- `connect()` : lee `data/conection.json` y devuelve conexión mysql.connector.
+- `read_data(query, params=None)` : ejecuta SELECT y devuelve lista de diccionarios (cursor dictionary=True).
+- `write_data(query, params=None)`, `update_data(query, data)`, `delete_data(query, data)` : helpers genéricos para modificación.
+
+- Usuarios / autenticación
+  - `check_username(username)` : comprueba existencia de username.
+  - `create_user(username, password, privilege=0)` : inserta usuario (password ya debe estar hasheada en app.py).
+  - `get_users(username=None, dept=None)` : devuelve usuarios, soporta filtros.
+  - `privileges(username)` / `check_privilege(required, user)` : lectura de privilegios.
+
+- Clientes y contactos
+  - `clients_info(client="*")` : lista clientes (o busca por nombre parcial)
+  - `add_client(name, nif)` : inserta cliente (intenta campos `email`/`nif` según esquema)
+  - `contact_info(id)`, `addresses_info(client_id)` : devuelve contactos y direcciones
+  - `add_contact`, `update_contact`, `delete_contact`
+  - `add_address`, `update_address`, `delete_address`
+
+- Facturas
+  - `upload_invoice(client, file_path, email, checkbox)` : inserta factura y guarda path
+  - `delete_invoice(id)`
+
+- Pedidos y líneas
+  - `add_pedido(cliente_id, direccion_envio)` : crea pedido y devuelve id
+  - `add_linea_pedido(pedido_id, producto_id, cantidad)` : añade línea
+  - `get_pedido(pedido_id)` : devuelve datos del pedido (cliente, fecha_taller, estado)
+  - `get_pedido_lines(pedido_id)` : devuelve líneas con información de producto (idlinia, producto_nombre, cantidad, etc.)
+  - `list_pedidos(cliente_id=None, date_from=None, date_to=None)` : listados con filtros
+
+- Productos y piezas (despiece)
+  - `products_list(q='*', idproducto=None)` : busca productos por nombre/código o por id
+  - `create_product(nombre, codigo, descripcion, precio, planos)` : inserta producto
+  - `create_pieza(name, codigo=None, plano=None)` : inserta pieza
+  - `add_despiece(producto_id, pieza_id)` : crea relación producto↔pieza
+  - `get_piezas_by_producto(producto_id)` : devuelve piezas ligadas a un producto (idpiezas, name, codigo, plano)
+  - `list_piezas(name=None, code=None)` : devuelve piezas filtradas (incluye datos de producto cuando se filtra por name/code)
+
+- Asignaciones (assignaciones)
+  - `add_assignment(pedido, empleado, proceso, idlinia)` : inserta asignación
+  - `get_assignments_for_user(username)` : lista asignaciones para usuario
+  - `update_assignment(pedido, empleado, proceso, idlinia, maquina=None, estado=None)` : actualiza asignación existente
+  - `get_assignments_for_pedido(pedido_id)` : devuelve asignaciones de un pedido (empleado id, maquina id, idlinia, proceso, estado)
+  - `pedido_assigned(pedido_id, proceso, idlinia)` : helper para determinar si línea/proceso ya está asignado
+
+Observaciones:
+- `list_piezas` en el repositorio devuelve diferentes conjuntos de campos según los parámetros (`name`/`code`), por lo que el frontend espera campos como `idpiezas`, `nombre_pieza`, `codigo_pieza`, `idproducto`, `nombre_producto`.
 
 ---
 
-### 3.3 `encriptio.py`
+## Contratos de API (resumen práctico)
 
-*(Ya documentado previamente: encrypt_password, verify_password.)*
+Estos son los endpoints que el frontend ya usa y el formato que espera:
+
+- `GET /api/products?q=<texto>`
+  - Devuelve: array de productos [{idproducto, nombre, descripcion, codigo, precio, planos}, ...]
+
+- `GET /api/producto/piezas?id=<idproducto>`
+  - Devuelve: array de piezas del producto [{idpiezas, name, codigo, plano}, ...]
+
+- `GET /api/piezas?name=<texto>&code=<texto>`
+  - Devuelve: array de piezas con campos cuando se filtra por name/code: `idpiezas`, `nombre_pieza`, `codigo_pieza`, `idproducto`, `nombre_producto`, `codigo_producto`
+
+- `GET /api/pedidos?client_id=&date_from=&date_to=`
+  - Devuelve: array de pedidos (idpedido, cliente, direccion_envio, fecha_taller, estado, cliente_id)
+
+- `GET /api/pedidos/<id>/lines` o `GET /api/pedido?id=` (ambos usados)
+  - Devuelve: líneas de pedido con `idlinia`, `producto`, `producto_nombre`, `cantidad`, etc.
+
+- `POST /api/pedidos/assign` (JSON)
+  - Input: { pedido, idlinia, proceso, empleado, maquina? }
+  - Crea o actualiza asignación. Devuelve 201/200 o error.
+
+- `POST /api/pedidos/assigned` (JSON o form)
+  - Input: { pedido } o form field `pedido`
+  - Devuelve: array de assignaciones para el pedido (se espera `idlinia`, `proceso`/`idproceso`, `maquina`/`maquina_id`, `estado`, `empleado` (id), y opcional `empleado_user` para mostrar nombre en UI).
 
 ---
 
-## 4. Relación con la Base de Datos
+## Plantillas y UX relevantes
 
-Cada función de `database.py` interactúa directamente con las tablas definidas en `db_structure.md`.  
-Esto asegura que los endpoints de `app.py` puedan ofrecer la lógica de negocio de forma consistente y segura.
-
----
-
-## 5. Consideraciones de Seguridad
-
-- **Sesiones:** Actualmente en memoria, se recomienda migrar a JWT o Redis.  
-- **Contraseñas:** Siempre cifradas antes de almacenarse.  
-- **SQL:** Consultas parametrizadas para evitar inyecciones.  
-- **Datos sensibles:** Configuración en `data/conection.json` debe mantenerse fuera del control de versiones.  
+- `web/html/productos/piezas/piezas_list.html` (añadida): lista piezas agrupadas por producto; filtros:
+  - `product-search` (autocomplete `/api/products?q=`)
+  - `filter-code` (autocomplete `/api/piezas?code=`)
+  - `filter-name` (busca por nombre de pieza, filtrado cliente-side)
+  - Botón `Cargar todas` para recuperar todas las piezas (consumo pesado, por precaución)
+  - Comportamiento interacciones: seleccionar producto auto-puebla sugerencias de códigos (y viceversa) para facilitar filtrado.
 
 ---
 
-## 6. Recomendaciones para Colaboradores
+## Base de datos (resumen)
 
-- Seguir PEP8 y añadir docstrings en formato Google/NumPy.  
-- Implementar tests unitarios para endpoints y funciones críticas.  
-- Usar `gunicorn` o `uWSGI` detrás de Nginx para despliegue.  
-- Configurar variables de entorno para credenciales y claves secretas.  
+La estructura completa está en `database/db_structure.md`. Resumen de tablas claves:
+- `clientes`, `datos_contacto`, `datos_envio`
+- `producto`, `piezas`, `despiece_productos`
+- `pedidos`, `linias_pedido`, `assignaciones`
+- `maquinas`, `procesos`, `facturas`, `users`, `departamentos`
+
+Relaciones principales:
+- `despiece_productos.producto` → `producto.idproducto`
+- `despiece_productos.pieza` → `piezas.idpiezas`
+- `linias_pedido.producto` → `producto.idproducto`
+- `assignaciones.pedido` → `pedidos.idpedido`
+- `assignaciones.empleado` → `users.id`
+
+---
+
+## Seguridad y recomendaciones
+
+- No usar `debug=True` en producción.
+- Mover `app.secret_key` a variable de entorno y usar sesiones seguras (cookie flags ya configuradas parcialmente).
+- Migrar almacenamiento de sesiones a Redis si la aplicación va a escalar.
+- Asegurar backups de la DB y de la carpeta `files/` donde se guardan uploads.
+- Limitar `Cargar todas` en la UI y paginar resultados en endpoints que puedan devolver muchos registros.
+
+---
+
+## Testing y QA
+
+- Añadir pruebas unitarias para `python/database.py` y pruebas de integración/instrumentación para `/api/*`.
+- Para pruebas locales: crear una base de datos de desarrollo con las mismas tablas y unos datos de ejemplo.
+
+---
+
+## Despliegue
+
+- Recomendación de producción: ejecutar Flask con `gunicorn` y detrás de Nginx en un servidor Linux.
+- Variables de entorno: `FLASK_SECRET`, configuración de DB en `data/conection.json` (o preferible: variables de entorno o un vault).
+
+---
+
+## Próximos pasos y mejoras sugeridas
+
+1. Añadir paginación a `GET /api/products` y `GET /api/piezas`.
+2. Añadir pruebas automáticas (pytest) y pipeline CI.
+3. Mejorar UX del autocomplete con navegación por teclado.
+4. Añadir controles de autorización más finos para rutas sensibles (roles/privilegios por acción).
+
+---
+
+Si quieres, puedo:
+- Generar documentación técnica por cada función con firmas (docstrings) directamente en `python/database.py`.
+- Añadir tests básicos que comprueben los endpoints más críticos.
+- Generar un `docker-compose` para levantar una instancia MySQL + la app para desarrollo.
+
+Dime cuál de estas tareas quieres que haga a continuación.
 
 ---
