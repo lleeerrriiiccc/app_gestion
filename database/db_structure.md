@@ -109,6 +109,7 @@
 | direccion_envio | int(11) | NO |  | 0 |  |
 | fecha_taller | date | YES |  | None |  |
 | estado | int(11) | YES |  | 0 |  |
+| assignado | int(11) | YES |  | 0 |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente

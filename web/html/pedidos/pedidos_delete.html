@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eliminar Pedidos</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <div class="page">
+    <header class="page__header">
+      <a class="btn" href="/pedidos">← Volver a Pedidos</a>
+      <h1>Eliminar Pedidos</h1>
+    </header>
+
+    <main class="page__content">
+      <section class="card card--wide">
+        <div class="card__header module-header"><div class="badge">Pedidos</div><h2>Borrar pedidos</h2></div>
+        <div class="card__body">
+          <div class="grid" style="align-items:end; gap:0.75rem;">
+            <div>
+              <label>ID pedido</label>
+              <input id="filter-id" type="text" placeholder="Buscar por id" />
+            </div>
+            <div>
+              <label>Cliente (nombre parcial)</label>
+              <input id="filter-client" type="text" placeholder="Nombre cliente" />
+            </div>
+            <div>
+              <label>Fecha taller (desde)</label>
+              <input id="filter-from" type="date" />
+            </div>
+            <div>
+              <label>Fecha taller (hasta)</label>
+              <input id="filter-to" type="date" />
+            </div>
+            <div style="display:flex; align-items:center; gap:.5rem">
+              <button id="btn-search" class="primary">Buscar</button>
+              <button id="btn-clear" class="ghost">Limpiar</button>
+            </div>
+          </div>
+
+          <hr />
+
+          <div id="results">Cargando...</div>
+
+          <div id="op-result" style="margin-top:12px;color:#333"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+
+    function escapeHtml(s){ if (s==null) return ''; return String(s).replace(/[&<>\"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    function parseDMY(s){ // expects dd-mm-YYYY or YYYY-mm-dd
+      if(!s) return null;
+      if(s.includes('-')){
+        const parts = s.split('-');
+        if(parts[0].length===4) { // YYYY-mm-dd (input date value)
+          return new Date(parts[0], Number(parts[1])-1, parts[2]);
+        }
+        // dd-mm-YYYY
+        return new Date(parts[2], Number(parts[1])-1, parts[0]);
+      }
+      return new Date(s);
+    }
+
+    async function fetchPedidos(){
+      try{
+        const res = await fetch('/api/pedidos');
+        if(!res.ok) throw new Error('No se pudieron obtener pedidos');
+        const data = await res.json();
+        return data || [];
+      }catch(e){ console.warn(e); return []; }
+    }
+
+    function renderTable(items){
+      const container = el('results');
+      if(!items || items.length===0){ container.innerHTML = '<div style="color:#666">No se encontraron pedidos.</div>'; return; }
+      const table = document.createElement('table');
+      table.className = 'table-responsive';
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>ID</th><th>Cliente</th><th>Fecha taller</th><th>Estado</th><th>Acciones</th></tr>';
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      items.forEach(p=>{
+        const tr = document.createElement('tr');
+        const id = p.idpedido || p.id || p['idpedido'];
+        const cliente = p.cliente_nombre || p.cliente || p['cliente_name'] || '';
+        const fecha = p.fecha_taller || p['fecha_taller'] || '';
+        const estado = (typeof p.estado !== 'undefined') ? p.estado : '';
+        tr.innerHTML = `<td>${escapeHtml(String(id||''))}</td><td>${escapeHtml(cliente)}</td><td>${escapeHtml(fecha)}</td><td>${escapeHtml(String(estado))}</td><td><button class="btn btn--danger" data-id="${escapeHtml(String(id||''))}">Eliminar</button></td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.innerHTML = '';
+      container.appendChild(table);
+
+      // attach delete handlers
+      container.querySelectorAll('button[data-id]').forEach(b=>{
+        b.addEventListener('click', async (ev)=>{
+          const id = ev.currentTarget.getAttribute('data-id');
+          if(!id) return;
+          if(!confirm('¿Eliminar pedido ' + id + '? Esta operación no se puede deshacer.')) return;
+          try{
+            // send as form-encoded to match server handlers
+            const body = new URLSearchParams(); body.append('id', id);
+            const resp = await fetch('/pedidos/delete', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+            if(resp.ok){ el('op-result').style.color='green'; el('op-result').textContent = 'Pedido eliminado: ' + id; // refresh list
+              await doSearch();
+            } else {
+              const txt = await resp.text().catch(()=>resp.statusText);
+              el('op-result').style.color='crimson'; el('op-result').textContent = 'Error eliminando: ' + txt;
+            }
+          }catch(e){ el('op-result').style.color='crimson'; el('op-result').textContent = 'Error de red.'; }
+        });
+      });
+    }
+
+    async function doSearch(){
+      el('op-result').textContent = '';
+      el('results').textContent = 'Buscando...';
+      const all = await fetchPedidos();
+      const idFilter = (el('filter-id').value || '').trim();
+      const clientFilter = (el('filter-client').value || '').trim().toLowerCase();
+      const fromRaw = el('filter-from').value;
+      const toRaw = el('filter-to').value;
+      const fromDate = fromRaw ? new Date(fromRaw) : null;
+      const toDate = toRaw ? new Date(toRaw) : null;
+
+      const filtered = all.filter(p=>{
+        const id = String(p.idpedido || p.id || p['idpedido'] || '');
+        if(idFilter && !id.includes(idFilter)) return false;
+        const cliente = String(p.cliente_nombre || p.cliente || p['cliente_name'] || '').toLowerCase();
+        if(clientFilter && !cliente.includes(clientFilter)) return false;
+        if(fromDate || toDate){
+          const fechaStr = p.fecha_taller || p['fecha_taller'] || '';
+          const fecha = parseDMY(fechaStr);
+          if(fromDate && fecha && fecha < fromDate) return false;
+          if(toDate && fecha && fecha > (new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(),23,59,59))) return false;
+        }
+        return true;
+      });
+
+      renderTable(filtered);
+    }
+
+    document.getElementById('btn-search').addEventListener('click', doSearch);
+    document.getElementById('btn-clear').addEventListener('click', ()=>{
+      el('filter-id').value=''; el('filter-client').value=''; el('filter-from').value=''; el('filter-to').value=''; doSearch();
+    });
+
+    // initial load
+    doSearch();
+  </script>
+</body>
+</html>

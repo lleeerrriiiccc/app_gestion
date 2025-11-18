@@ -799,6 +799,23 @@ def pedido_details():
     pedido_id = request.args.get('id')
     return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
 
+#Eliminar pedidos
+@app.route('/pedidos/delete', methods=['GET', 'POST'])
+@login_required
+def pedidos_delete():
+    if request.method == 'GET':
+        return render_template('pedidos/pedidos_delete.html')
+    # POST -> delete pedido
+    pedido_id = request.form.get('id')
+    if not pedido_id:
+        return ("Missing id", 400)
+    try:
+        db.delete_pedido(pedido_id)
+        return ("Pedido deleted", 200)
+    except Exception as e:
+        print('pedidos_delete error:', e)
+        return (f"Error deleting pedido: {e}", 500)
+
 
 @app.route('/pedidos/assign', methods=['GET'])
 @login_required

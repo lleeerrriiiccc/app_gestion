@@ -347,6 +347,15 @@ def add_pedido(cliente_id, direccion_envio):
     conn.close()
     return pedido_id
 
+def delete_pedido(pedido_id):
+    """Delete a pedido by its id."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM pedidos WHERE idpedido = %s", (pedido_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 
 def add_linea_pedido(pedido_id, producto_id, cantidad):
     """Insert a new line into linias_pedido."""
