@@ -596,18 +596,18 @@ def get_assignments_for_user(username):
     """
     query = """
     SELECT
-        a.pedido,
-        a.empleado,
-        u.user AS empleado_user,
-        proc.descripcion AS proceso,
-        a.proceso AS idproceso,
-        m.nombre AS maquina,
-        a.idlinia,
-        a.estado,
-        DATE_FORMAT(p.fecha_taller, '%d-%m-%Y') AS fecha_taller,
-        c.name AS cliente_name,
-        lp.cantidad,
-        pr.nombre AS producto_nombre
+    a.pedido,
+    a.empleado,
+    u.user AS empleado_user,
+    proc.descripcion AS proceso,
+    a.proceso AS idproceso,
+    m.nombre AS maquina,
+    a.idlinia,
+    a.estado,
+    DATE_FORMAT(p.fecha_taller, '%d-%m-%Y') AS fecha_taller,
+    c.name AS cliente_name,
+    lp.cantidad,
+    pr.nombre AS producto_nombre
     FROM assignaciones a
         INNER JOIN users u ON a.empleado = u.id
         INNER JOIN pedidos p ON a.pedido = p.idpedido
@@ -617,6 +617,15 @@ def get_assignments_for_user(username):
         LEFT JOIN linias_pedido lp ON a.idlinia = lp.idlinia
         LEFT JOIN producto pr ON lp.producto = pr.idproducto
     WHERE u.user = %s
+        AND a.estado != 2  
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM assignaciones ant 
+            WHERE ant.pedido = a.pedido 
+                AND ant.idlinia = a.idlinia 
+                AND ant.proceso = proc.idproceso - 1  
+                AND ant.estado != 2  
+        )
     ORDER BY p.fecha_taller DESC;
     """
     results = read_data(query, (username,))
