@@ -75,9 +75,11 @@
 | factura_pendiente | int(11) | YES |  | None |  |
 | email | text | YES |  | None |  |
 | idfactura | int(11) | NO | MUL | None | auto_increment |
+| pedido | int(11) | YES | MUL | None |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente
+- pedido → pedidos.idpedido
 
 ## Tabla: linias_pedido
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |

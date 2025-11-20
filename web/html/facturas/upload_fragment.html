@@ -32,6 +32,18 @@
             <div id="emailSuggestions" class="suggestion-content" style="margin-top:6px"></div>
         </div>
 
+                <div>
+                        <label for="pedido_num">Número de pedido (opcional)</label>
+                        <div style="display:flex; gap:.5rem; align-items:center">
+                            <input id="pedido_num" name="pedido_num" type="text" placeholder="Escribe número de pedido" autocomplete="off" style="min-width:180px">
+                            <input id="pedido_id" name="pedido_id" type="hidden">
+                            <div id="pedido-client" style="color:var(--muted); font-size:13px;"> </div>
+                        </div>
+                        <div id="pedido-suggestions" class="suggestion-content" style="margin-top:6px"></div>
+                </div>
+
+
+
         <div style="margin-top:6px">
             <label><input type="checkbox" id="checkbox" name="checkbox"> Factura pendiente de pago</label>
         </div>
@@ -64,6 +76,7 @@
             const client = form.client.value.trim();
             const email = form.email.value.trim();
             const checkbox = form.checkbox.checked ? 'on' : '';
+            const pedido = form.pedido_num.value.trim();
 
             if (!f) { show('Selecciona un archivo.', 'error'); return; }
             if (!client) { show('El cliente es obligatorio.', 'error'); return; }
@@ -73,6 +86,7 @@
             fd.append('client', client);
             fd.append('email', email);
             fd.append('checkbox', checkbox);
+            fd.append('pedido', pedido);
 
             submitBtn.disabled = true;
             show('Subiendo…', 'small');
@@ -139,6 +153,63 @@
                 tryPopulateInvoiceEmails(chosen);
             }
         });
+
+        // --- Autocomplete for pedido number ---
+        const pedidoInput = document.getElementById('pedido_num');
+        const pedidoIdHidden = document.getElementById('pedido_id');
+        const pedidoClientSpan = document.getElementById('pedido-client');
+        const pedidoSuggestionsDiv = document.getElementById('pedido-suggestions');
+        let pedidosCache = null;
+        let pedidoTimer = null;
+
+        async function fetchAllPedidos(){
+            if(pedidosCache) return pedidosCache;
+            try{
+                const r = await fetch('/api/pedidos');
+                if(!r.ok) return [];
+                const data = await r.json();
+                // Expect items with 'idpedido' and 'cliente' fields
+                pedidosCache = data || [];
+                return pedidosCache;
+            }catch(e){ console.error('fetchAllPedidos', e); return []; }
+        }
+
+        pedidoInput.addEventListener('input', function(){
+            clearTimeout(pedidoTimer);
+            pedidoIdHidden.value = '';
+            pedidoClientSpan.textContent = '';
+            const q = this.value.trim();
+            if(!q){ pedidoSuggestionsDiv.innerHTML = ''; return; }
+            pedidoTimer = setTimeout(async ()=>{
+                // prefer numeric match, but we will filter strings too
+                const all = await fetchAllPedidos();
+                if(!all || all.length===0){ pedidoSuggestionsDiv.innerHTML = ''; return; }
+                const filtered = all.filter(p=> String(p.idpedido).startsWith(q) || (p.cliente||'').toLowerCase().indexOf(q.toLowerCase())!==-1 ).slice(0,40);
+                pedidoSuggestionsDiv.innerHTML = '';
+                filtered.forEach(p=>{
+                    const div = document.createElement('div');
+                    div.className = 'suggestion';
+                    div.dataset.payload = JSON.stringify(p);
+                    div.textContent = `#${p.idpedido} — ${p.cliente || p.cliente_nombre || ''}`;
+                    pedidoSuggestionsDiv.appendChild(div);
+                });
+            }, 200);
+        });
+
+        pedidoSuggestionsDiv.addEventListener('click', function(e){
+            const it = e.target.closest('.suggestion');
+            if(!it) return;
+            let payload = null;
+            try{ payload = JSON.parse(it.dataset.payload); }catch(e){ payload = null; }
+            if(!payload) return;
+            pedidoInput.value = String(payload.idpedido || payload.id || '');
+            pedidoIdHidden.value = String(payload.idpedido || payload.id || '');
+            pedidoClientSpan.textContent = payload.cliente || payload.cliente_nombre || '';
+            pedidoSuggestionsDiv.innerHTML = '';
+        });
+
+        // On blur, clear suggestions shortly
+        pedidoInput.addEventListener('blur', ()=> setTimeout(()=> pedidoSuggestionsDiv.innerHTML = '', 180));
 
         // Also try populate when client input loses focus and value matches a client
         clientInput.addEventListener('blur', function(){

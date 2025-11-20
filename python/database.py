@@ -135,12 +135,12 @@ def check_privilege(requiered_privilege, user):
     else:
         return False
 
-def upload_invoice(client, file_path, email, checkbox):
+def upload_invoice(client, file_path, email, checkbox, pedido):
     conn = connect()
     cur = conn.cursor()
     # factura_pendiente: interpret checkbox as 0 when 'on', else 1 to keep parity with original app
     factura_pendiente = 0 if checkbox == 'on' else 1
-    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email) VALUES ((SELECT idcliente FROM clientes WHERE NAME = %s), %s, %s, %s)", (client, file_path, factura_pendiente, email))
+    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email, pedido, fecha) VALUES ((SELECT idcliente FROM clientes WHERE NAME = %s), %s, %s, %s, %s, (DATE(NOW())))", (client, file_path, factura_pendiente, email, pedido))
     conn.commit()
     cur.close()
     conn.close()
@@ -738,6 +738,15 @@ def pedido_assigned(pedido_id, proceso, idlinia):
         return True
     else:
         return False
+    
+def last_invoice_number():
+    """Return the last used invoice number from facturas table."""
+    query = "SELECT MAX(idfactura) AS last_invoice FROM facturas;"
+    results = read_data(query)
+    if results and results[0]['last_invoice'] is not None:
+        return results[0]['last_invoice']
+    else:
+        return 0
 
 
 

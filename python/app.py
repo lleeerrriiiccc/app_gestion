@@ -7,6 +7,7 @@ import os
 from flask import send_from_directory
 from flask_cors import CORS
 import database as db
+import files as files
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
@@ -149,7 +150,7 @@ def api_invoices():
     try:
         conn = db.connect()
         cur = conn.cursor(dictionary=True)
-        base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente"
+        base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente ORDER BY idfactura ASC"
         params = []
         where = []
         if client:
@@ -655,40 +656,26 @@ def invoice():
         if 'user' not in session:
             return redirect(url_for('login'))
         return render_template('facturas/upload_fragment.html')
-    # ensure upload folder exists under repo/files/bills
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file = request.files.get('file')
+    
     client = request.form.get('client')
     email = request.form.get('email')
     checkbox = request.form.get('checkbox')
-
-    if not file or file.filename == '':
-        return ("No file uploaded", 400)
+    pedido = request.form.get('pedido')
 
     if not client:
         return ("Client is required", 400)
-
+    # Insert into DB using database.connect() if available, else fallback
     try:
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(upload_dir, filename)
-        file.save(file_path)
-
-        # Insert into DB using database.connect() if available, else fallback
+        filepath = files.generate_invoice(pedido)
+        db.upload_invoice(client, filepath, email, checkbox, pedido)
+        return ("Invoice uploaded successfully", 201)
+    except Exception as db_err:
         try:
-            db.upload_invoice(client, file_path, email, checkbox)
-        except Exception as db_err:
-            # remove file if DB insert failed
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-            return (f"Database error: {db_err}", 500)
-
-        return ("File uploaded and data saved successfully!", 201)
-    except Exception as e:
-        return (f"Upload error: {e}", 500)
+            os.remove(filepath)
+        except Exception:
+            pass
+        return (f"Database error: {db_err}", 500)
+        
     
 # Invoices delete page & delete
 @app.route('/invoices/delete', methods=['GET', 'POST'])
@@ -952,8 +939,16 @@ def products_despiece():
 def piezas_lsit():
     return render_template('productos/piezas/piezas_list.html')
 
-
-
+@app.route('/facturas/generate', methods=['POST'])
+@login_required
+def facturas_generate():
+    pedido_id = request.form.get('pedido_id')   
+    pedido_data = db.get_pedido(pedido_id)
+    pedido_lines = db.get_pedido_lines(pedido_id)
+    filename = pedido_data["cliente_nombre"].replace(" ", "_") + f"_factura_{pedido_data['numero_factura']}.pdf"
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills', filename)) # placeholder to get invoice number
+    files.generate_invoice_pdf(pedido_data, pedido_lines, path, pedido_data["numero_factura"])
+    return path, 201
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=80)
