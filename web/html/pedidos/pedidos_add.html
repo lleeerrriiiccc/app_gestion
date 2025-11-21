@@ -29,14 +29,15 @@
                     <option value="">Seleccione un cliente primero</option>
                 </select>
                 
+                <label class="muted">Email de contacto (facturación)</label>
+                <input type="email" id="email" name="email" placeholder="cliente@ejemplo.com" autocomplete="off" />
+                <div id="emailSuggestions" class="hint" style="margin-top:6px"></div>
+
                 <label class="muted">Referencia / Nota</label>
                 <input type="text" id="referencia" name="referencia" placeholder="Referencia interna, PO, etc." />
 
-                <label class="muted">Factura pendiente</label>
-                <select id="facturaPendiente" name="factura_pendiente">
-                    <option value="0">No</option>
-                    <option value="1">Sí</option>
-                </select>
+                <label class="muted">Factura pendiente de pago</label>
+                <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="checkbox" name="checkbox"> Marcado = pendiente</label>
                 
                 <label class="muted">Líneas de pedido</label>
                 <div id="productLines" style="display:flex;flex-direction:column;gap:8px">
@@ -67,6 +68,8 @@ let resultDiv = document.getElementById('result');
 let selectedClient = null;
 let debounceTimer = null;
 let productDebounce = null;
+let emailInput = document.getElementById('email');
+let emailSuggestionsDiv = document.getElementById('emailSuggestions');
 
 clienteInput.addEventListener('input', function(e){
     let q = clienteInput.value.trim();
@@ -110,6 +113,8 @@ function selectClient(item){
     autocompleteList.textContent = '';
     selectedClient = {id, name};
     loadAddresses(id);
+    // populate emails for billing contacts
+    tryPopulateInvoiceEmails(id);
 }
 
 document.getElementById('btnClearClient').addEventListener('click', ()=>{
@@ -118,7 +123,62 @@ document.getElementById('btnClearClient').addEventListener('click', ()=>{
     autocompleteList.textContent = '';
     direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>';
     resultDiv.textContent = '';
+    if(emailInput) emailInput.value = '';
+    if(emailSuggestionsDiv) emailSuggestionsDiv.innerHTML = '';
 });
+
+// --- Email suggestions for billing contacts ---
+function isInvoiceRecipient(contact){
+    if(!contact) return false;
+    const v = contact.facturas ?? contact.factura ?? contact.send_invoices ?? contact.send_invoice;
+    if(v === undefined) return false;
+    return v === 1 || v === '1' || v === 'on' || v === true;
+}
+
+async function tryPopulateInvoiceEmails(clientId){
+    if(!clientId) return;
+    try{
+        const r = await fetch('/api/contacts?client_id=' + encodeURIComponent(clientId));
+        if(!r.ok) return;
+        const contacts = await r.json();
+        const emails = [];
+        const seen = new Set();
+        (contacts || []).forEach(ct=>{
+            const email = ct.email || ct.mail || ct.e_mail || '';
+            if(!email) return;
+            if(!isInvoiceRecipient(ct)) return;
+            if(!seen.has(email)){
+                seen.add(email);
+                emails.push({email, name: ct.name || ct.nombre || ''});
+            }
+        });
+        renderEmailSuggestions(emails);
+    }catch(err){ console.error('populate emails', err); }
+}
+
+function renderEmailSuggestions(list){
+    if(!emailSuggestionsDiv) return;
+    emailSuggestionsDiv.innerHTML = '';
+    if(!list || list.length === 0) return;
+    const ul = document.createElement('ul'); ul.style.listStyle='none'; ul.style.padding=0; ul.style.margin='6px 0';
+    list.forEach(it=>{
+        const li = document.createElement('li');
+        li.style.padding='6px 8px'; li.style.border='1px solid #eee'; li.style.cursor='pointer'; li.style.marginTop='4px';
+        li.textContent = it.email + (it.name ? ' — ' + it.name : '');
+        li.dataset.email = it.email;
+        li.addEventListener('click', ()=>{
+            if(emailInput) emailInput.value = li.dataset.email || '';
+            emailSuggestionsDiv.innerHTML = '';
+        });
+        ul.appendChild(li);
+    });
+    emailSuggestionsDiv.appendChild(ul);
+}
+
+// clear email suggestions on blur
+if(emailInput){
+    emailInput.addEventListener('blur', ()=> setTimeout(()=> emailSuggestionsDiv.innerHTML = '', 180));
+}
 
 function loadAddresses(clientId){
     if (!clientId){ direccionSelect.innerHTML = '<option value="">Cliente sin id</option>'; return; }
@@ -272,6 +332,7 @@ pedidoForm.addEventListener('submit', function(e){
     e.preventDefault();
     resultDiv.textContent = '';
     let clientId = clienteIdInput.value || '';
+    console.log('Submitting pedido for client', clientId);
     if (!clientId){ resultDiv.textContent = 'Selecciona primero un cliente de la lista.'; return; }
     let direccion = direccionSelect.value || '';
     if (!direccion){ resultDiv.textContent = 'Selecciona una dirección de envío.'; return; }
@@ -281,7 +342,8 @@ pedidoForm.addEventListener('submit', function(e){
         cliente: clientId,
         direccion_envio: direccion,
         referencia: document.getElementById('referencia') ? document.getElementById('referencia').value : '',
-        factura_pendiente: document.getElementById('facturaPendiente') ? document.getElementById('facturaPendiente').value : 0,
+        factura_pendiente: (document.getElementById('checkbox') && document.getElementById('checkbox').checked) ? 1 : 0,
+        contacto_email: document.getElementById('email') ? document.getElementById('email').value.trim() : '',
         lines: []
     };
     // gather lines

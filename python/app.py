@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, abort, jsonify
+import requests
 from database import *
 from encription import *
 from werkzeug.utils import secure_filename
@@ -71,9 +72,16 @@ def login_required(f):
 
     return wrapped
 
+def internal_required(f):
+    from functools import wraps
 
-
-
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        print('Request from IP:', request.remote_addr)
+        if request.remote_addr == '10.94.255.191':  # Example internal IP
+            return f(*args, **kwargs)
+        return abort(403)
+    return wrapped
 
 # Static file serving
 @app.route('/css/<path:filename>')
@@ -767,6 +775,8 @@ def pedidos():
     # POST -> add pedido
     client = request.json.get('cliente')
     direccion = request.json.get('direccion_envio')
+    email = request.json.get('contacto_email')
+    checkbox = request.json.get('factura_pendiente')
     lines = request.json.get('lines')  # Expecting a list of dicts with 'producto' and 'cantidad'
     if not client or not direccion or not lines:
         return ("Missing parameters", 400)
@@ -774,6 +784,13 @@ def pedidos():
         pedido = db.add_pedido(client, direccion)
         for i in lines:
             db.add_linea_pedido(pedido, i['producto'], i['cantidad'])
+        payload = {'pedido_id': pedido}
+        response = requests.post(request.url_root + 'facturas/generate', json=payload)
+        if response.status_code != 201:
+            print('Error generating invoice for pedido', pedido)
+        file_path = response.text
+        print(client)
+        db.upload_invoice(client=client, file_path=file_path, email=email, checkbox=checkbox, pedido=pedido)
         return ("Pedido added", 201)
     except Exception as e:
         print('pedidos_add error:', e)
@@ -940,14 +957,10 @@ def piezas_lsit():
     return render_template('productos/piezas/piezas_list.html')
 
 @app.route('/facturas/generate', methods=['POST'])
-@login_required
+@internal_required
 def facturas_generate():
-    pedido_id = request.form.get('pedido_id')   
-    pedido_data = db.get_pedido(pedido_id)
-    pedido_lines = db.get_pedido_lines(pedido_id)
-    filename = pedido_data["cliente_nombre"].replace(" ", "_") + f"_factura_{pedido_data['numero_factura']}.pdf"
-    path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills', filename)) # placeholder to get invoice number
-    files.generate_invoice_pdf(pedido_data, pedido_lines, path, pedido_data["numero_factura"])
+    pedido_id = request.json.get('pedido_id')   
+    path = files.generate_invoice(pedido_id)
     return path, 201
 
 if __name__ == '__main__':

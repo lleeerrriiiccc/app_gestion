@@ -4,7 +4,6 @@ import os
 def generate_invoice(pedido):
     pedido_data = db.get_pedido(pedido)
     pedido_lines = db.get_pedido_lines(pedido)
-    print(pedido_data, pedido_lines)
     factura_num = db.last_invoice_number() + 1
     storage = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'files', 'bills'))
     filename = pedido_data["cliente_nombre"].replace(" ", "_") + f"_factura_{factura_num}.pdf"
@@ -40,6 +39,4 @@ def generate_invoice(pedido):
     pdf.output(path)
 
     return path
-
-generate_invoice("5")
 

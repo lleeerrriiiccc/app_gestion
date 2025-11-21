@@ -140,7 +140,7 @@ def upload_invoice(client, file_path, email, checkbox, pedido):
     cur = conn.cursor()
     # factura_pendiente: interpret checkbox as 0 when 'on', else 1 to keep parity with original app
     factura_pendiente = 0 if checkbox == 'on' else 1
-    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email, pedido, fecha) VALUES ((SELECT idcliente FROM clientes WHERE NAME = %s), %s, %s, %s, %s, (DATE(NOW())))", (client, file_path, factura_pendiente, email, pedido))
+    cur.execute("INSERT INTO facturas (cliente, ubicacion_factura, factura_pendiente, email, pedido, fecha) VALUES (%s, %s, %s, %s, %s, (DATE(NOW())))", (client, file_path, factura_pendiente, email, pedido))
     conn.commit()
     cur.close()
     conn.close()
