@@ -332,7 +332,6 @@ pedidoForm.addEventListener('submit', function(e){
     e.preventDefault();
     resultDiv.textContent = '';
     let clientId = clienteIdInput.value || '';
-    console.log('Submitting pedido for client', clientId);
     if (!clientId){ resultDiv.textContent = 'Selecciona primero un cliente de la lista.'; return; }
     let direccion = direccionSelect.value || '';
     if (!direccion){ resultDiv.textContent = 'Selecciona una dirección de envío.'; return; }
@@ -342,7 +341,7 @@ pedidoForm.addEventListener('submit', function(e){
         cliente: clientId,
         direccion_envio: direccion,
         referencia: document.getElementById('referencia') ? document.getElementById('referencia').value : '',
-        factura_pendiente: (document.getElementById('checkbox') && document.getElementById('checkbox').checked) ? 1 : 0,
+        factura_pendiente: (document.getElementById('checkbox').checked) ? 1 : 0,
         contacto_email: document.getElementById('email') ? document.getElementById('email').value.trim() : '',
         lines: []
     };

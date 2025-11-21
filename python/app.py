@@ -158,12 +158,12 @@ def api_invoices():
     try:
         conn = db.connect()
         cur = conn.cursor(dictionary=True)
-        base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente ORDER BY idfactura ASC"
+        base = "SELECT clientes.name as cliente, idfactura, ubicacion_factura, factura_pendiente, facturas.email FROM facturas INNER JOIN clientes ON facturas.cliente = clientes.idcliente"
         params = []
         where = []
         if client:
             where.append("clientes.name LIKE %s")
-            params.append(client + '%')
+            params.append('%' + client + '%')
         if paid == 'pending':
             where.append("factura_pendiente = %s")
             params.append(1)
@@ -172,6 +172,8 @@ def api_invoices():
             params.append(0)
         if where:
             base = base + ' WHERE ' + ' AND '.join(where) + ';'
+        order_by = " ORDER BY idfactura ASC;"
+        base = base + order_by
         cur.execute(base, params)
         rows = cur.fetchall()
         cur.close()
@@ -657,34 +659,7 @@ def invoices_edit():
         return jsonify([])
     
 # Upload endpoint for invoices
-@app.route('/invoices/add', methods=["GET", 'POST'])
-@login_required
-def invoice():
-    if request.method == 'GET':
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return render_template('facturas/upload_fragment.html')
-    
-    client = request.form.get('client')
-    email = request.form.get('email')
-    checkbox = request.form.get('checkbox')
-    pedido = request.form.get('pedido')
 
-    if not client:
-        return ("Client is required", 400)
-    # Insert into DB using database.connect() if available, else fallback
-    try:
-        filepath = files.generate_invoice(pedido)
-        db.upload_invoice(client, filepath, email, checkbox, pedido)
-        return ("Invoice uploaded successfully", 201)
-    except Exception as db_err:
-        try:
-            os.remove(filepath)
-        except Exception:
-            pass
-        return (f"Database error: {db_err}", 500)
-        
-    
 # Invoices delete page & delete
 @app.route('/invoices/delete', methods=['GET', 'POST'])
 @login_required
@@ -776,7 +751,8 @@ def pedidos():
     client = request.json.get('cliente')
     direccion = request.json.get('direccion_envio')
     email = request.json.get('contacto_email')
-    checkbox = request.json.get('factura_pendiente')
+    checkbox = str(request.json.get('factura_pendiente'))
+    print('Checkbox value:', checkbox)
     lines = request.json.get('lines')  # Expecting a list of dicts with 'producto' and 'cantidad'
     if not client or not direccion or not lines:
         return ("Missing parameters", 400)
