@@ -46,7 +46,6 @@
                             <th>Cliente</th>
                             <th>Fecha producción</th>
                             <th>Estado</th>
-                            <th>Asignado a</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -55,9 +54,10 @@
             </div>
         </section>
     </main>
-
-    <script>
+    <script type="module">
+    import { getUser } from "/js/auth.js";
     (function(){
+        
         const clientSelect = document.getElementById('filterClient');
         const dateInput = document.getElementById('filterDate');
         const btnFilter = document.getElementById('btnFilter');
@@ -85,6 +85,7 @@
         }
 
         async function loadPedidos(){
+            const userPromise = await getUser();
             tbody.innerHTML = '';
             notice.textContent = '';
             try{
@@ -131,28 +132,32 @@
                     }
                     const assigned = p.assigned_to || p.employee || '';
                     const tr = document.createElement('tr');
+                    if(userPromise.role === 1){
                     tr.innerHTML = `
                         <td>${escapeHtml(id)}</td>
                         <td>${escapeHtml(cliente)}</td>
                         <td>${escapeHtml(fecha)}</td>
                         <td>${escapeHtml(estado)}</td>
-                        <td>${escapeHtml(assigned)}</td>
                         <td><button class="ghost view-pedido" data-id="${escapeHtml(id)}">Ver</button>
                             <button class="ghost assign-pedido" data-id="${escapeHtml(id)}">Asignar</button></td>
                     `;
                     tbody.appendChild(tr);
+                    }
+                    else{
+                        tr.innerHTML = `
+                        <td>${escapeHtml(id)}</td>
+                        <td>${escapeHtml(cliente)}</td>
+                        <td>${escapeHtml(fecha)}</td>
+                        <td>${escapeHtml(estado)}</td>
+                        <td><button class="ghost view-pedido" data-id="${escapeHtml(id)}">Ver</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                    }
                 });
             }catch(err){
                 console.error(err);
                 notice.textContent = 'Error cargando pedidos (comprueba el endpoint /api/pedidos).';
             }
-        }
-
-        function showMissingPedidosEndpoint(status){
-            notice.innerHTML = `No se pudo obtener pedidos (status ${status}).<br>
-            Backend requerido: <code>GET /api/pedidos</code> que acepte parámetros opcionales <code>client</code> y <code>production_date</code> y devuelva JSON array de pedidos con al menos { idpedido, cliente_name, fecha_produccion, estado, assigned_to }.<br>
-            Opcionalmente añade: <code>POST /api/pedidos/assign</code> (payload JSON { id, employee_id }) para asignar pedidos a empleados, y <code>GET /api/pedidos/&lt;id&gt;</code> para ver detalles.
-            `;
         }
 
         // Event delegation for view/assign buttons

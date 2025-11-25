@@ -35,6 +35,13 @@
                 </select>
             </div>
 
+            <div>
+                <label for="department">Departamento</label>
+                <select id="department" name="department">
+                    <option value="">-- Seleccionar departamento --</option>
+                </select>
+            </div>
+
             <div class="actions">
                 <button type="submit" class="primary">Crear usuario</button>
                 <button type="button" class="ghost" onclick="location.href='/dashboard'" aria-label="Cancelar y volver al dashboard">Cancelar</button>
@@ -61,6 +68,7 @@
                 const user = form.username.value.trim();
                 const pwd = form.password.value;
                 const privilege = form.privilege.value;
+                const department = form.department.value;
 
                 if (!user) {
                     show('El usuario es obligatorio.', 'error');
@@ -105,6 +113,23 @@
                 }
             });
         })();
+        async function loadDepartments(){
+            try{
+                const res = await fetch('/api/departments');
+                if(!res.ok) throw new Error('No se pudieron cargar los departamentos.');
+                const data = await res.json();
+                const select = document.getElementById('department');
+                data.forEach(dept=>{
+                    const option = document.createElement('option');
+                    option.value = dept.iddept || dept.id || dept.ID;
+                    option.textContent = dept.name || dept.nombre || option.value;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        loadDepartments();
     </script>
 </body>
 </html>

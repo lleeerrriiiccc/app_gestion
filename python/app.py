@@ -9,6 +9,7 @@ from flask import send_from_directory
 from flask_cors import CORS
 import database as db
 import files as files
+import jwt, datetime
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
@@ -45,12 +46,18 @@ def login():
     if not res:
         # user not found
         abort(401)
-
+    
     stored_hash = res[0]['pass']
+    print(res)
     if check_password(password, stored_hash):
-        session['user'] = user
-        session['privilege'] = res[0].get('privilege', 0)
-        return redirect(url_for('dashboard'))
+        token = jwt.encode({
+        "username": user,
+        "role": res[0]['privilege'],
+        "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=1)
+        }, app.config["SECRET_KEY"])
+        resp = redirect(url_for('dashboard'))
+        resp.set_cookie("token", token, httponly=True, samesite="Strict")
+        return resp
     else:
         abort(401)
 
@@ -63,12 +70,20 @@ def logout():
 #check login decorator
 def login_required(f):
     from functools import wraps
-
     @wraps(f)
     def wrapped(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
+        token = request.cookies.get("token") 
+        if not token:
+            return redirect(url_for("login"))
+        try:
+            payload = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+        except Exception:
+            return redirect(url_for("login"))
+        session['user'] = payload['username']
+        session['privilege'] = payload['role']
         return f(*args, **kwargs)
+
+    return wrapped
 
     return wrapped
 
@@ -93,6 +108,11 @@ def css(filename):
 def img(filename):
     img_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'resources'))
     return send_from_directory(img_dir, filename)
+@app.route('/js/<path:filename>')
+@internal_required
+def js(filename):
+    js_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'js'))
+    return send_from_directory(js_dir, filename)
 
 # Autocomplete endpoint for client names
 @app.route('/data', methods=['GET'])
@@ -181,15 +201,34 @@ def api_invoices():
         return jsonify(rows)
     except Exception as e:
         return jsonify([])
-    
+
+@app.route('/api/departments', methods=['GET'])
+@internal_required
+def api_departments():
+    try:
+        results = db.get_departments()
+        return jsonify(results)
+    except Exception:
+        return jsonify([])
+
 # API: current user info
 @app.route('/api/me', methods=['GET'])
 @login_required
 def api_me():
-    return jsonify({
-        'user': session.get('user'),
-        'privilege': session.get('privilege', 0)
-    })
+    token = request.cookies.get("token")
+    if not token:
+        return jsonify({"logged": False}), 401
+
+    try:
+        data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+        print('Decoded token data:', data)
+        return jsonify({
+            "logged": True,
+            "username": data["username"],
+            "role": data["role"]
+        })
+    except:
+        return jsonify({"logged": False}), 401
 
 #API: clients info
 @app.route('/api/clients', methods=['GET'])
@@ -601,6 +640,7 @@ def users():
     user = request.form.get('username')
     password = request.form.get('password')
     privilege = request.form.get('privilege', 0)
+    department = request.form.get('department', None)
     if not db.check_params([user, password]):
         abort(400)
 
@@ -612,7 +652,7 @@ def users():
     if isinstance(hashed_password, bytes):
         hashed_password = hashed_password.decode('utf-8')
 
-    db.create_user(user, hashed_password, privilege)
+    db.create_user(user, hashed_password, privilege, department)
     return ("User registered successfully", 201)
 
 

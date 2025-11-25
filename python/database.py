@@ -68,10 +68,10 @@ def check_username(username):
         return False
     
 
-def create_user(username, password, privilege=0):
+def create_user(username, password, privilege=0, department=None):
     conn = connect()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (user, pass, privilege) VALUES (%s, %s, %s)", (username, password, privilege))
+    cursor.execute("INSERT INTO users (user, pass, privilege, dept) VALUES (%s, %s, %s, %s)", (username, password, privilege, department))
     conn.commit()
     cursor.close()
     conn.close()
@@ -746,6 +746,12 @@ def last_invoice_number():
         return results[0]['last_invoice']
     else:
         return 0
+    
+def get_departments():
+    """Return list of departments from departamentos table."""
+    query = "SELECT iddept, name FROM departamentos;"
+    results = read_data(query)
+    return results
 
 
 

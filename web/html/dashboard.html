@@ -42,7 +42,6 @@
         const menuEl = document.getElementById('menu');
         const filterInput = document.getElementById('filter');
         const statusEl = document.getElementById('status');
-
         let menuData = [];
 
         async function loadMenu(){
@@ -63,7 +62,7 @@
 
                 renderMenu();
                 fetch('/api/me').then(r=>r.json()).then(user=>{
-                    statusEl.textContent = `Conectado como ${user.user || user.name || 'desconocido'}`;
+                    statusEl.textContent = `Conectado como ${user['username'] || user.name || 'desconocido'}`;
                 });
             }catch(err){
                 console.error(err);
