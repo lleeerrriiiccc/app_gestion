@@ -621,12 +621,34 @@ def get_direccion_envio(address_id):
 
 def add_assignment(pedido, empleado, proceso, idlinia):
     """Insert an assignment into the assignaciones table.
-    Expects: pedido (int), empleado (int), proceso (str or int), idlinia (int), maquina (int or None)
+    Expects: pedido (int), empleado (int or None), proceso (str or int), idlinia (int)
     """
-    query = "INSERT INTO assignaciones (pedido, empleado, proceso, idlinia) VALUES (%s, %s, %s, %s)"
-    write_data(query, (pedido, empleado, proceso, idlinia))
-    query = "UPDATE pedidos SET assignado = 1 WHERE idpedido = %s"
-    write_data(query, (pedido,))
+    # Use None so the MySQL driver inserts a real NULL value when empleado is missing
+    if empleado is None or empleado == '':
+        empleado = None
+
+    # Insert calculated 'estado' (using CASE) along with proceso and idlinia.
+    # Columns: pedido, empleado, estado, proceso, idlinia, fecha_entrada
+    query = """
+    INSERT INTO assignaciones (pedido, empleado, estado, proceso, idlinia, fecha_entrada)
+    VALUES (
+        %s,
+        %s,
+        CASE
+            WHEN %s IS NULL OR %s = '' THEN 2
+            ELSE 0
+        END,
+        %s,
+        %s,
+        DATE(NOW())
+    )
+    """
+    params = (pedido, empleado, empleado, empleado, proceso, idlinia)
+    write_data(query, params)
+
+    query_update = "UPDATE pedidos SET assignado = 1 WHERE idpedido = %s"
+    write_data(query_update, (pedido,))
+
 
 
 def get_assignments_for_user(username):
@@ -753,5 +775,14 @@ def get_departments():
     results = read_data(query)
     return results
 
+def check_pedido_status(pedido_id):
+    query = "SELECT estado FROM assignaciones WHERE pedido = %s AND empleado IS NOT NULL;"
+    results = read_data(query, (pedido_id,))
+    print(results[-1]['estado'] == 2)
+    if results[-1]['estado'] == 2:
+        query = "UPDATE pedidos SET estado = 2, fecha_completado = DATE(NOW()) WHERE idpedido = %s;"
+        write_data(query, (pedido_id,))
+        return True
+    return False
 
 

@@ -52,7 +52,7 @@
   const pedido = qs.get('pedido');
   const idlinia = qs.get('idlinia');
   const proceso = qs.get('proceso');
-    const idproceso = qs.get('idproceso');
+  const idproceso = qs.get('idproceso');
   const el = id => document.getElementById(id);
 
   function escape(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -76,7 +76,17 @@
   // load machines
   try{
     const r = await fetch('/api/maquinas');
-    if(r.ok){ const ms = await r.json(); ms.forEach(m=>{ const o = document.createElement('option'); o.value = m.idmaquina || m.id || m.ID; o.textContent = `${m.nombre || m.nombre || o.value} ${m.proceso?('('+m.proceso+')'):''}`; document.getElementById('machineSelect').appendChild(o); }); }
+    if(r.ok){
+      const ms = await r.json();
+      ms.forEach(m=>{
+        if(m.proceso == idproceso){
+        const o = document.createElement('option');
+        o.value = m.idmaquina || m.id || m.ID;
+        o.textContent = `${m.nombre || m.nombre || o.value} ${m.proceso?('('+m.proceso+')'):''}`;
+        document.getElementById('machineSelect').appendChild(o);
+        }
+      });
+    }
   }catch(e){ console.warn('no machines', e); }
 
   // load existing assignment for this pedido/line/process (if any)

@@ -74,8 +74,9 @@
 | ubicacion_factura | text | YES |  | None |  |
 | factura_pendiente | int(11) | YES |  | None |  |
 | email | text | YES |  | None |  |
-| idfactura | int(11) | NO | MUL | None | auto_increment |
+| idfactura | int(11) | NO | PRI | None | auto_increment |
 | pedido | int(11) | YES | MUL | None |  |
+| fecha | date | YES |  | None |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente

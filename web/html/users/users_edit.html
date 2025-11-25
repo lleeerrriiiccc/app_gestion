@@ -26,6 +26,21 @@
             <input id="newPassword" type="password" placeholder="Nueva contraseña (mín 8)" minlength="8">
         </div>
 
+        <div>
+            <label for="privilegeSelect">Privilegio</label>
+            <select id="privilegeSelect">
+                <option value="0">Usuario</option>
+                <option value="1">Administrador</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="departmentSelect">Departamento</label>
+            <select id="departmentSelect">
+                <option value="">-- Cargando departamentos --</option>
+            </select>
+        </div>
+
         <div class="actions">
             <button id="saveBtn" class="primary">Guardar cambios</button>
             <button id="cancelBtn" type="button" class="ghost" onclick="location.href='/dashboard'">Volver</button>
@@ -53,10 +68,36 @@
             }
         }
 
+        // load departments into select
+        async function loadDepartments(){
+            const sel = document.getElementById('departmentSelect');
+            sel.innerHTML = '';
+            try{
+                const res = await fetch('/api/departments');
+                if(!res.ok) throw new Error('No se pudieron cargar los departamentos.');
+                const data = await res.json();
+                const empty = document.createElement('option');
+                empty.value = '';
+                empty.textContent = '-- Seleccionar departamento --';
+                sel.appendChild(empty);
+                data.forEach(dept=>{
+                    const opt = document.createElement('option');
+                    opt.value = dept.iddept || dept.id || dept.ID || '';
+                    opt.textContent = dept.name || dept.nombre || opt.value;
+                    sel.appendChild(opt);
+                });
+            }catch(err){
+                sel.innerHTML = '<option value="">Error cargando departamentos</option>';
+                console.error(err);
+            }
+        }
+
         document.getElementById('saveBtn').addEventListener('click', async ()=>{
             const sel = document.getElementById('userSelect');
             const user = sel.value;
             const pwd = document.getElementById('newPassword').value;
+            const privilege = document.getElementById('privilegeSelect') ? document.getElementById('privilegeSelect').value : '';
+            const department = document.getElementById('departmentSelect') ? document.getElementById('departmentSelect').value : '';
             const msg = document.getElementById('message');
             msg.textContent = '';
             if(!user){ msg.textContent='Selecciona un usuario'; return; }
@@ -66,17 +107,46 @@
                 const res = await fetch('/users/edit', {
                     method:'POST',
                     headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-                    body: new URLSearchParams({username: user, password: pwd}).toString()
+                    body: new URLSearchParams({username: user, password: pwd, privilege: privilege, dept: department}).toString()
                 });
                 const text = await res.text();
                 if(res.ok){ msg.className='success'; msg.textContent = text || 'Contraseña actualizada'; }
                 else { msg.className='error'; msg.textContent = text || 'Error al actualizar'; }
             }catch(err){ msg.className='error'; msg.textContent = 'No se pudo conectar'; }
         });
+        // Initialize
         loadUsers();
+        loadDepartments();
+
+        // when a user is selected, try to populate privilege and department
+        document.getElementById('userSelect').addEventListener('change', async function(){
+            const user = this.value;
+            document.getElementById('message').textContent = '';
+            if(!user) return;
+            try{
+                const r = await fetch('/api/users');
+                if(!r.ok) return;
+                const list = await r.json();
+                // find the user object if returned as object
+                let found = null;
+                for(const u of list){
+                    const name = u.user || u.name || u.username || u;
+                    if(String(name) === String(user)) { found = u; break; }
+                }
+                if(found){
+                    // populate privilege if available
+                    if(found.privilege !== undefined) document.getElementById('privilegeSelect').value = String(found.privilege);
+                    if(found.dept !== undefined) document.getElementById('departmentSelect').value = String(found.dept);
+                    // clear password input for safety
+                    document.getElementById('newPassword').value = '';
+                }
+            }catch(e){ console.error('load user details', e); }
+        });
         document.getElementById('cancelBtn').addEventListener('click', ()=>{
             document.getElementById('newPassword').value = '';
             document.getElementById('message').textContent = '';
+            if(document.getElementById('privilegeSelect')) document.getElementById('privilegeSelect').value = '0';
+            if(document.getElementById('departmentSelect')) document.getElementById('departmentSelect').value = '';
         });
 
         

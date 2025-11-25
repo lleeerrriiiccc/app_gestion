@@ -534,7 +534,7 @@ def api_assignaciones_update():
     empleado = payload.get('empleado')
     maquina = payload.get('maquina') if 'maquina' in payload else None
     estado = payload.get('estado') if 'estado' in payload else None
-
+    
     # If empleado not provided, default to current session user id
     if not empleado:
         cur_user = session.get('user')
@@ -550,6 +550,7 @@ def api_assignaciones_update():
 
     try:
         db.update_assignment(pedido, empleado, proceso, idlinia, maquina, estado)
+        db.check_pedido_status(pedido)
         return ("Assignment updated", 200)
     except Exception as e:
         print('api_assignaciones_update error:', e)
