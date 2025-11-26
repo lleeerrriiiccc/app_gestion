@@ -56,8 +56,9 @@
         </section>
 
     </main>
-
-    <script>
+<script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
+<script src="{{ url_for('js', filename='alerts.js') }}"></script>
+<script type="module">
 // Autocomplete for clients using /api/clients endpoint
 let clienteInput = document.getElementById('clienteInput');
 let clienteIdInput = document.getElementById('clienteId');
@@ -357,7 +358,7 @@ pedidoForm.addEventListener('submit', function(e){
             if (r.ok) return r.text().then(t=>({ok:true, text:t}));
             return r.text().then(t=>({ok:false, text:t}));
         }).then(obj=>{
-            if (obj.ok){ resultDiv.textContent = 'Pedido creado correctamente.'; pedidoForm.reset(); direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>'; }
+            if (obj.ok){ resultDiv.textContent = 'Pedido creado correctamente.'; pedidoForm.reset(); direccionSelect.innerHTML = '<option value="">Seleccione un cliente primero</option>'; pedidoADD("usuario_actual"); }
             else { resultDiv.textContent = 'Error creando pedido: ' + obj.text; }
         }).catch(err=>{ resultDiv.textContent = 'Error de conexión: ' + err; });
 });

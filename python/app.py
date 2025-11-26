@@ -10,11 +10,12 @@ from flask_cors import CORS
 import database as db
 import files as files
 import jwt, datetime
+from flask_socketio import SocketIO
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
 app = Flask(__name__, template_folder=template_dir)
-
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 CORS(app)
 
 # Simple secret for sessions (change in production)
@@ -23,9 +24,15 @@ app.config.update(
                 SESSION_COOKIE_HTTPONLY=True,
                 SESSION_COOKIE_SAMESITE='Lax')
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    return redirect(url_for('login'))
+    if request.method == 'GET':
+        return redirect(url_for('login'))
+def enviar_notificacion(usuario, mensaje):
+    socketio.emit('notificacion', {
+        'usuario': usuario,
+        'mensaje': mensaje
+    })
 
 #SESSION MANAGEMENT
 #login page & authentication
@@ -808,6 +815,7 @@ def pedidos():
         file_path = response.text
         print(client)
         db.upload_invoice(client=client, file_path=file_path, email=email, checkbox=checkbox, pedido=pedido)
+        #socketio.emit('notificacion', {'usuario': client, 'mensaje': 'Se ha añadido un nuevo pedido asignalo'})
         return ("Pedido added", 201)
     except Exception as e:
         print('pedidos_add error:', e)
@@ -981,4 +989,4 @@ def facturas_generate():
     return path, 201
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80)
+    socketio.run(app, debug=True, host='0.0.0.0', port=80)
