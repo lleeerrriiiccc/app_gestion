@@ -20,9 +20,15 @@
                 <input id="filterClient" type="text" placeholder="Nombre cliente" />
                 <button id="btnFilter" class="primary">Filtrar</button>
                 <button id="btnReload" class="ghost">Recargar</button>
-            </div>
-        </section>
-
+            <script src="/js/alerts.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function(){
+                    try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+                });
+            </script>
+    
+        </body>
+        </html>
         <section style="margin-top:12px">
             <div class="table-responsive">
             <table id="invoicesTable">

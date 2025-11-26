@@ -16,7 +16,7 @@
     <section>
       <div class="table-responsive">
         <table id="assignTable">
-          <thead>
+        
             <tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Línea</th><th>Producto</th><th>Cantidad</th><th>Proceso</th><th>Máquina</th><th>Estado</th><th>Acciones</th></tr>
           </thead>
           <tbody></tbody>
@@ -182,5 +182,11 @@
   load();
 })();
 </script>
+  <script src="/js/alerts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+    });
+  </script>
 </body>
 </html>

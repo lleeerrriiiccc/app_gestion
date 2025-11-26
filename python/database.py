@@ -775,6 +775,88 @@ def get_departments():
     results = read_data(query)
     return results
 
+
+def create_notifications_table():
+    """Create notifications table if it does not exist.
+    Columns: id (auto), usuario_destino, remitente, mensaje, metadata (JSON/text), leido (0/1), fecha (datetime)
+    """
+    query = """
+    CREATE TABLE IF NOT EXISTS notificaciones (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_destino VARCHAR(255) DEFAULT NULL,
+        remitente VARCHAR(255) DEFAULT NULL,
+        mensaje TEXT,
+        metadata JSON DEFAULT NULL,
+        leido TINYINT(1) DEFAULT 0,
+        fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def add_notification(usuario_destino, remitente, mensaje, metadata=None, persist=True):
+    """Insert a notification. If usuario_destino is None treat as broadcast (use NULL)."""
+    if persist:
+        # ensure table exists
+        try:
+            create_notifications_table()
+        except Exception:
+            pass
+        conn = connect()
+        cursor = conn.cursor()
+        meta_text = None
+        if metadata is not None:
+            try:
+                meta_text = json.dumps(metadata, ensure_ascii=False)
+            except Exception:
+                meta_text = str(metadata)
+        cursor.execute(
+            "INSERT INTO notificaciones (usuario_destino, remitente, mensaje, metadata, leido) VALUES (%s, %s, %s, %s, 0)",
+            (usuario_destino, remitente, mensaje, meta_text)
+        )
+        conn.commit()
+        nid = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return nid
+    return None
+
+
+def get_notifications_for_user(usuario, only_unread=False, limit=200):
+    """Return list of notifications for a given usuario (or broadcasts where usuario_destino IS NULL).
+    Includes both specific and broadcast notifications.
+    """
+    create_notifications_table()
+    if only_unread:
+        query = "SELECT * FROM notificaciones WHERE (usuario_destino = %s OR usuario_destino IS NULL) AND leido = 0 ORDER BY fecha DESC LIMIT %s"
+        return read_data(query, (usuario, limit))
+    query = "SELECT * FROM notificaciones WHERE (usuario_destino = %s OR usuario_destino IS NULL) ORDER BY fecha DESC LIMIT %s"
+    return read_data(query, (usuario, limit))
+
+
+def mark_notification_as_read(notification_id, usuario):
+    """Mark a notification as read if it belongs to usuario or is broadcast (allow marking by usuario validation).
+    Returns True on success.
+    """
+    create_notifications_table()
+    # ensure the notification exists and belongs to the user (or is broadcast)
+    q = "SELECT usuario_destino FROM notificaciones WHERE id = %s"
+    rows = read_data(q, (notification_id,))
+    if not rows:
+        return False
+    destino = rows[0].get('usuario_destino')
+    # allow marking if destino is NULL (broadcast) or matches usuario
+    if destino is not None and str(destino) != str(usuario):
+        return False
+    update_q = "UPDATE notificaciones SET leido = 1 WHERE id = %s"
+    write_data(update_q, (notification_id,))
+    return True
+
 def check_pedido_status(pedido_id):
     query = "SELECT estado FROM assignaciones WHERE pedido = %s AND empleado IS NOT NULL;"
     results = read_data(query, (pedido_id,))

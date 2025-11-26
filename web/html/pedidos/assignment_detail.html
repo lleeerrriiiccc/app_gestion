@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Detalle de asignación</title>
   <link rel="stylesheet" href="/css/main.css">
-</head>
 <body>
   <main class="card card--wide">
     <div class="module-header">
@@ -144,5 +143,11 @@
 
 })();
 </script>
+  <script src="/js/alerts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+    });
+  </script>
 </body>
 </html>

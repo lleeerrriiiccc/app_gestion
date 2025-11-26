@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Test Notificaciones</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>
+        body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
+        .card{max-width:640px;margin:0 auto;padding:18px;border:1px solid #e6e6e6;border-radius:8px}
+        #notif{padding:12px;border-radius:6px;margin-top:12px;display:none}
+        #notif.success{background:#e6ffed;border:1px solid #b7f1c6;color:#0b7a3a}
+        #notif.info{background:#eef6ff;border:1px solid #cde3ff;color:#0b4f9a}
+        /* Toast container (top-right) */
+        #toastContainer{
+            position:fixed;
+            top:18px;
+            right:18px;
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            z-index:99999;
+            pointer-events:none;
+            max-width:360px;
+        }
+        .toast{
+            pointer-events:auto;
+            background: #fff;
+            color: #111;
+            border-radius:8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            padding:12px 14px;
+            transform: translateY(-6px) scale(.995);
+            opacity: 0;
+            transition: transform 240ms cubic-bezier(.2,.9,.3,1), opacity 240ms ease-in-out;
+            font-size:14px;
+        }
+        .toast.show{
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        .toast.hide{
+            opacity: 0;
+            transform: translateY(-8px) scale(.995);
+        }
+        .toast.success{ background: #e6ffed; border:1px solid #b7f1c6; color:#0b7a3a }
+        .toast.info{ background: #eef6ff; border:1px solid #cde3ff; color:#0b4f9a }
+        .toast .meta{display:block;font-size:12px;color:rgba(0,0,0,0.6);margin-top:6px}
+    </style>
+</head>
+<body>
+    <main class="card">
+        <h2>Prueba de notificaciones</h2>
+        <p class="small">Esta página se conecta al servidor por Socket.IO y muestra las notificaciones entrantes.</p>
+
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+            <input id="toInput" placeholder="Destinatario (usuario or 'all')" style="min-width:200px;padding:6px;border:1px solid #ddd;border-radius:4px">
+            <input id="msgInput" placeholder="Mensaje a enviar" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:4px">
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:8px">
+            <button id="btnSend" class="primary">Enviar notificación</button>
+            <button id="btnLocal" class="ghost">Mostrar notificación local</button>
+        </div>
+
+        <div id="notif" role="status" aria-live="polite"></div>
+    </main>
+
+    <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <script>
+        (function(){
+            // Load Socket.IO client from CDN with local fallback
+            function loadScript(src, cb){
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = ()=> cb(null);
+                s.onerror = (e)=> cb(e || new Error('load error'));
+                document.head.appendChild(s);
+            }
+
+            function initSocket(){
+                if(typeof io === 'undefined'){
+                    console.error('Socket.IO client not available');
+                    showToast('No se pudo cargar Socket.IO client.', {type:'info', ttl:8000});
+                    return;
+                }
+                const socket = io();
+                const notif = document.getElementById('notif');
+                const btnSend = document.getElementById('btnSend');
+                const btnLocal = document.getElementById('btnLocal');
+
+            function showMessage(text, type='info'){
+                // small inline status in the page (kept for compatibility)
+                notif.textContent = text;
+                notif.className = type;
+                notif.style.display = 'block';
+                setTimeout(()=> notif.style.display = 'none', 2500);
+            }
+
+            // Toast helper: top-right popups
+            function getToastContainer(){
+                let c = document.getElementById('toastContainer');
+                if(!c){
+                    c = document.createElement('div');
+                    c.id = 'toastContainer';
+                    document.body.appendChild(c);
+                }
+                return c;
+            }
+
+            function showToast(message, opts={type:'info', ttl:10000}){
+                const container = getToastContainer();
+                const t = document.createElement('div');
+                t.className = 'toast ' + (opts.type || 'info');
+                t.innerHTML = `<div class="msg">${escapeHtml(String(message))}</div>`;
+                // optional meta area
+                if(opts.meta){ const m = document.createElement('div'); m.className='meta'; m.textContent = opts.meta; t.appendChild(m); }
+                container.prepend(t);
+                // show animation
+                requestAnimationFrame(()=> t.classList.add('show'));
+                // auto hide after ttl
+                const ttl = typeof opts.ttl === 'number' ? opts.ttl : 10000;
+                const hide = ()=>{
+                    t.classList.remove('show');
+                    t.classList.add('hide');
+                    setTimeout(()=> t.remove(), 300);
+                };
+                const timeoutId = setTimeout(hide, ttl);
+                // click to dismiss immediately
+                t.addEventListener('click', ()=>{ clearTimeout(timeoutId); hide(); });
+                return t;
+            }
+
+            function escapeHtml(s){
+                return s.replace(/[&<>\"]/g, function(c){
+                    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+                });
+            }
+
+                socket.on('connect', ()=>{
+                showMessage('Conectado al servidor de notificaciones', 'info');
+                setTimeout(()=> notif.style.display = 'none', 1200);
+            });
+
+                socket.on('connect_error', (err)=>{
+                    console.error('Socket connect error', err);
+                    showToast('Error conectando a notificaciones.', {type:'info', ttl:8000});
+                });
+
+                socket.on('notificacion', function(payload){
+                // payload expected: { usuario, mensaje }
+                try{
+                    const u = payload.usuario || 'server';
+                    const m = payload.mensaje || payload.message || payload.msg || JSON.stringify(payload);
+                    showToast(`${u}: ${m}`, {type:'success', ttl:10000});
+                }catch(e){
+                    showToast('Notificación recibida', {type:'success', ttl:10000});
+                }
+            });
+
+                // expose socket for debugging in console
+                window.__socket = socket;
+            }
+
+            // Try CDN first, then fallback to local /socket.io/socket.io.js
+            loadScript('https://cdn.socket.io/4.6.1/socket.io.min.js', function(err){
+                if(err){
+                    console.warn('CDN socket.io failed, falling back to local script', err);
+                    loadScript('/socket.io/socket.io.js', function(err2){
+                        if(err2){
+                            console.error('Failed to load socket.io client from local endpoint', err2);
+                            showToast('No se pudo cargar Socket.IO client (CDN y local).', {type:'info', ttl:10000});
+                            return;
+                        }
+                        initSocket();
+                    });
+                } else {
+                    initSocket();
+                }
+            });
+
+            btnSend.addEventListener('click', async ()=>{
+                btnSend.disabled = true;
+                const to = document.getElementById('toInput').value.trim() || 'all';
+                const message = document.getElementById('msgInput').value.trim() || 'Prueba desde test.html';
+                const payload = { to: to, message: message, persist: true };
+                try{
+                    // First try authenticated API endpoint
+                    let res = await fetch('/api/notify', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                    if (res.status === 401 || res.status === 403) {
+                        // fallback to unauthenticated test endpoint
+                        res = await fetch('/test/notify', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                    }
+                    if(res.ok){ showMessage('Notificación enviada al servidor', 'info'); }
+                    else { showMessage('Error al solicitar notificación: ' + res.status, 'info'); }
+                }catch(e){ showMessage('Error de conexión', 'info'); }
+                finally{ btnSend.disabled = false; }
+            });
+
+            // local-only test without server
+            btnLocal.addEventListener('click', ()=> showMessage('Notificación local: prueba OK', 'success'));
+        })();
+    </script>
+</body>
+</html>

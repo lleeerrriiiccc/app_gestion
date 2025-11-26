@@ -187,5 +187,11 @@
         loadClients().then(loadPedidos);
     })();
     </script>
+    <script src="/js/alerts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+        });
+    </script>
 </body>
 </html>

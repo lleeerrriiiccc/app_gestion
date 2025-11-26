@@ -19,7 +19,14 @@
                 <label class="muted">Seleccionar cliente</label>
                 <select id="clientSelect" style="min-width:320px"></select>
                 <button id="btnLoad" class="primary">Cargar</button>
-                <button id="btnNew" class="ghost">Nuevo</button>
+        </script>
+    <script src="/js/alerts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+        });
+    </script>
+
             </div>
         </section>
 

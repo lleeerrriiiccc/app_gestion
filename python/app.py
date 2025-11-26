@@ -10,13 +10,53 @@ from flask_cors import CORS
 import database as db
 import files as files
 import jwt, datetime
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room, leave_room
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
 app = Flask(__name__, template_folder=template_dir)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet',
+                    logger=True, engineio_logger=True)
 CORS(app)
+@socketio.on('connect')
+def handle_connect():
+    # Try to identify the user from the JWT cookie and join a room named after the username
+    try:
+        token = request.cookies.get('token')
+        if token:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            username = payload.get('username')
+            if username:
+                join_room(str(username))
+                print(f"Socket connected and joined room: {username}")
+            else:
+                print('Socket connected (no username in token)')
+        else:
+            print('Socket connected (no token)')
+    except Exception as e:
+        print('Socket connect error decoding token:', e)
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    try:
+        token = request.cookies.get('token')
+        if token:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            username = payload.get('username')
+            if username:
+                try:
+                    leave_room(str(username))
+                except Exception:
+                    pass
+                print(f"Socket disconnected from room: {username}")
+            else:
+                print('Socket disconnected (no username)')
+        else:
+            print('Socket disconnected (no token)')
+    except Exception as e:
+        print('Socket disconnect error:', e)
+
 
 # Simple secret for sessions (change in production)
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-key-change-me')
@@ -116,8 +156,8 @@ def img(filename):
     img_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'resources'))
     return send_from_directory(img_dir, filename)
 @app.route('/js/<path:filename>')
-@internal_required
 def js(filename):
+    # Serve JS files publicly so that pages (including login) can load shared client scripts
     js_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'js'))
     return send_from_directory(js_dir, filename)
 
@@ -987,6 +1027,116 @@ def facturas_generate():
     pedido_id = request.json.get('pedido_id')   
     path = files.generate_invoice(pedido_id)
     return path, 201
+
+@app.route('/test')
+def test_page():
+    return render_template('test.html')
+
+
+@app.route('/test/notify', methods=['POST'])
+def test_notify():
+    """Test endpoint: accept JSON { to: username|'all'|'broadcast', message: str, persist: bool }
+    This endpoint is unauthenticated (kept for testing) and will store the notification and emit it.
+    """
+    try:
+        data = None
+        try:
+            data = request.get_json(silent=True)
+        except Exception:
+            data = None
+        to = None
+        message = 'Mensaje de prueba desde /test/notify'
+        persist = True
+        if isinstance(data, dict):
+            to = data.get('to')
+            message = data.get('message', message)
+            persist = data.get('persist', True)
+
+        # store notification
+        try:
+            # remitente is 'test' for this endpoint
+            nid = None
+            try:
+                nid = db.add_notification(to if to and to != 'all' else None, 'test', message, metadata=None, persist=persist)
+            except Exception as e:
+                print('Could not persist notification:', e)
+
+            # emit
+            if not to or to == 'all' or to == 'broadcast':
+                socketio.emit('notificacion', {'usuario': 'test', 'mensaje': message})
+            elif isinstance(to, list):
+                for u in to:
+                    socketio.emit('notificacion', {'usuario': 'test', 'mensaje': message}, room=str(u))
+            else:
+                socketio.emit('notificacion', {'usuario': 'test', 'mensaje': message}, room=str(to))
+        except Exception as e:
+            print('Error emitting/storing test notification:', e)
+        return ('Notificación enviada', 200)
+    except Exception as e:
+        print('test_notify error:', e)
+        return (f'Error: {e}', 500)
+
+
+@app.route('/api/notify', methods=['POST'])
+@login_required
+def api_notify():
+    """Send a notification from the logged-in user to one or many recipients.
+    JSON body: { to: <username>|[usernames]|'all', message: <str>, persist: <bool, default true> }
+    """
+    payload = request.get_json(silent=True)
+    if not payload or 'message' not in payload:
+        return ("Missing message", 400)
+    sender = session.get('user') or 'system'
+    to = payload.get('to')
+    message = payload.get('message')
+    persist = payload.get('persist', True)
+    try:
+        # persist and emit
+        if not to or to == 'all' or to == 'broadcast':
+            db.add_notification(None, sender, message, metadata=None, persist=persist)
+            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message})
+        elif isinstance(to, list):
+            for u in to:
+                db.add_notification(u, sender, message, metadata=None, persist=persist)
+                socketio.emit('notificacion', {'usuario': sender, 'mensaje': message}, room=str(u))
+        else:
+            db.add_notification(to, sender, message, metadata=None, persist=persist)
+            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message}, room=str(to))
+        return ('Notification sent', 201)
+    except Exception as e:
+        print('api_notify error:', e)
+        return (f'Error: {e}', 500)
+
+
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def api_list_notifications():
+    user = session.get('user')
+    only_unread = request.args.get('unread') == '1'
+    try:
+        rows = db.get_notifications_for_user(user, only_unread=only_unread)
+        return jsonify(rows)
+    except Exception as e:
+        print('api_list_notifications error:', e)
+        return jsonify([])
+
+
+@app.route('/api/notifications/mark_read', methods=['POST'])
+@login_required
+def api_mark_read():
+    payload = request.get_json(silent=True)
+    if not payload or 'id' not in payload:
+        return ("Missing id", 400)
+    nid = payload.get('id')
+    user = session.get('user')
+    try:
+        ok = db.mark_notification_as_read(nid, user)
+        if ok:
+            return ('Marked', 200)
+        return ('Not found or forbidden', 404)
+    except Exception as e:
+        print('api_mark_read error:', e)
+        return (f'Error: {e}', 500)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=80)

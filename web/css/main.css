@@ -137,3 +137,9 @@ thead th{background:transparent;color:var(--muted);font-weight:700}
 .menu .submenu a:hover{background:rgba(255,255,255,0.04)}
 .menu .has-submenu.open .submenu{display:block}
 
+/* Notifications: ensure container is always positioned consistently
+  Alerts.js injects more styles, but these base rules keep placement
+  consistent even if the injected styles fail to load. */
+#toastContainer{position:fixed;top:18px;right:18px;display:flex;flex-direction:column;gap:10px;z-index:99999;pointer-events:none;max-width:360px}
+.toast{pointer-events:auto}
+

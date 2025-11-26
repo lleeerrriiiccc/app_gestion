@@ -40,6 +40,7 @@
     </main>
   </div>
 
+  <script src="/js/alerts.js"></script>
   <script>
     // UI for assigning processes to employees per line item
     async function process_get(url) {
@@ -115,7 +116,6 @@
           if (Array.isArray(assigns) && assigns.length>0){
             // Map assignments for quick lookup by lineId+procId
             assigns.forEach(a => {
-              console.log(a.empleado === null);
               const lineId = String(a.idlinia || a.id || a.linea || '');
               const procId = String(a.idproceso || a.proceso || '');
               // find select for this pair
@@ -210,6 +210,9 @@
     async function saveAssignments(lines, processes) {
       const results = [];
       const errors = [];
+      // collect distinct recipients to notify (use username when available)
+      const notifiedUsers = new Set();
+
       for (const ln of lines){
         const lineId = ln.idlinia || ln.id || ln.linea || null;
         if (!lineId) continue;
@@ -217,34 +220,52 @@
           // find checkbox for this line+proc
           const cb = document.querySelector(`.proc-cb[data-line="${lineId}"][data-proc="${proc.id}"]`);
           const sel = document.querySelector(`.emp-select[data-line="${lineId}"][data-proc="${proc.id}"]`);
-            const employee_id = sel ? sel.value : '';
-            if(cb.checked === false){
-              console.warn('Checkbox not checked, skipping assignment for line', lineId, 'proc', proc.id);
-              var payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: null };
-            }
-            else if(cb.checked === true && !employee_id){
-              window.alert('Selecciona un empleado para la línea ' + lineId + ' proceso ' + proc.nombre);
-              continue;
-            }
-            else if(cb.checked === true && employee_id){
-                          console.log(employee_id);
-              var payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
-            }
-            // Attempt to POST to recommended endpoint
-            try{
-              const res = await fetch('/api/pedidos/assign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-              if (res.ok){
-                results.push({ payload });
-              } else {
-                const text = await res.text().catch(()=>res.statusText);
-                errors.push({ payload, status: res.status, text });
+          const employee_id = sel ? sel.value : '';
+          var username = sel ? (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '') : '';
+          notifiedUsers.add(username);
+          let payload = null;
+          let recipient = '';
+
+          if (cb && cb.checked === false){
+            // explicit unassign
+            payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: null };
+          }
+          else if (cb && cb.checked === true && !employee_id){
+            window.alert('Selecciona un empleado para la línea ' + lineId + ' proceso ' + proc.nombre);
+            continue;
+          }
+          else if (cb && cb.checked === true && employee_id){
+            payload = { pedido: pedidoId, idlinia: lineId, proceso: proc.id || proc, empleado: employee_id };
+            // try to resolve a username to notify: prefer option text when value is numeric id
+            if (sel){
+              const opt = sel.options[sel.selectedIndex];
+              if (opt){
+                const val = String(opt.value || '');
+                const txt = String(opt.text || '');
+                // if option text differs from value, assume it's the username; otherwise use value
+                recipient = (txt && val !== txt) ? txt : val;
+                
               }
-            }catch(e){
-              errors.push({ payload, error: String(e) });
             }
           }
+
+          if (!payload) continue;
+
+          // Attempt to POST to recommended endpoint
+          try{
+            const res = await fetch('/api/pedidos/assign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            if (res.ok){
+              results.push({ payload });
+              if (recipient) notifiedUsers.add(username);
+            } else {
+              const text = await res.text().catch(()=>res.statusText);
+              errors.push({ payload, status: res.status, text });
+            }
+          }catch(e){
+            errors.push({ payload, error: String(e) });
+          }
         }
-      
+      }
 
       const rEl = el('save-result');
       if (errors.length === 0){
@@ -254,8 +275,22 @@
         console.warn('assign errors', errors);
       }
 
-      // Also show a short summary in backend-notes for developer
-      
+      // Send notifications to distinct assigned users (message must NOT include username)
+      console.log('Notifying users', notifiedUsers);
+      if (notifiedUsers.size > 0){
+        notifiedUsers.forEach(user => {
+          try{
+            if (window.Alerts && typeof window.Alerts.sendNotification === 'function'){
+              // send a minimal message; the server will handle delivery to that user
+              Alerts.sendNotification({ to: user, message: 'Nuevo pedido asignado', persist: true })
+                .then(resp => { if (!resp || !resp.ok) console.warn('Notification API returned', resp && resp.status); })
+                .catch(err => console.warn('Notification send error', err));
+            } else {
+              console.warn('Alerts.sendNotification not available; include /js/alerts.js to enable notifications');
+            }
+          }catch(e){ console.warn('Could not send notification to', user, e); }
+        });
+      }
     }
 
     // load at start
