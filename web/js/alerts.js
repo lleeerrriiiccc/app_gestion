@@ -68,7 +68,8 @@
                 socket.on('connect', ()=>{ if(options.onConnect) options.onConnect(); });
                 socket.on('connect_error', (err)=>{ console.error('Socket connect error', err); showToast('Error conectando a notificaciones', {type:'info', ttl:8000}); if(options.onError) options.onError(err); });
                 socket.on('notificacion', (payload)=>{
-                    try{ const u = payload.usuario || 'server'; const m = payload.mensaje || payload.message || payload.msg || JSON.stringify(payload); showToast(u+': '+m, {type:'success', ttl:10000}); }catch(e){ showToast('Notificación recibida', {type:'success', ttl:10000}); }
+                    console.log(payload.mensaje);
+                    try{const m = payload.mensaje; showToast(m, {type:'success', ttl:10000}); }catch(e){ showToast('Notificación recibida', {type:'success', ttl:10000}); }
                 });
                 // expose
                 Alerts.socket = socket;

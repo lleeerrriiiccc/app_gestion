@@ -350,6 +350,9 @@ def delete_pedido(pedido_id):
     """Delete a pedido by its id."""
     conn = connect()
     cursor = conn.cursor()
+    cursor.execute("DELETE FROM assignaciones WHERE pedido = %s", (pedido_id,))
+    cursor.execute("DELETE FROM linias_pedido WHERE pedido = %s", (pedido_id,))
+    cursor.execute("DELETE FROM facturas WHERE pedido = %s", (pedido_id,))
     cursor.execute("DELETE FROM pedidos WHERE idpedido = %s", (pedido_id,))
     conn.commit()
     cursor.close()
@@ -860,7 +863,6 @@ def mark_notification_as_read(notification_id, usuario):
 def check_pedido_status(pedido_id):
     query = "SELECT estado FROM assignaciones WHERE pedido = %s AND empleado IS NOT NULL;"
     results = read_data(query, (pedido_id,))
-    print(results[-1]['estado'] == 2)
     if results[-1]['estado'] == 2:
         query = "UPDATE pedidos SET estado = 2, fecha_completado = DATE(NOW()) WHERE idpedido = %s;"
         write_data(query, (pedido_id,))

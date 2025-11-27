@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, abort, jsonify
 import requests
@@ -11,6 +13,10 @@ import database as db
 import files as files
 import jwt, datetime
 from flask_socketio import SocketIO, join_room, leave_room
+import alerts as ntf
+from concurrent.futures import ThreadPoolExecutor
+
+executor = ThreadPoolExecutor(max_workers=4)
 
 # Use the repository's web/html folder as the template folder
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'html'))
@@ -848,13 +854,16 @@ def pedidos():
         pedido = db.add_pedido(client, direccion)
         for i in lines:
             db.add_linea_pedido(pedido, i['producto'], i['cantidad'])
-        payload = {'pedido_id': pedido}
-        response = requests.post(request.url_root + 'facturas/generate', json=payload)
-        if response.status_code != 201:
-            print('Error generating invoice for pedido', pedido)
-        file_path = response.text
-        print(client)
+        future = executor.submit(files.generate_invoice, pedido)
+        response = future.result()
+        file_path = response
         db.upload_invoice(client=client, file_path=file_path, email=email, checkbox=checkbox, pedido=pedido)
+        payload = {
+            'to': session.get('user'),
+            'mensaje': 'Se ha añadido un nuevo pedido asignalo!!'
+        }
+        print(payload)
+        ntf.send_notification(payload=payload, socketio=socketio)
         #socketio.emit('notificacion', {'usuario': client, 'mensaje': 'Se ha añadido un nuevo pedido asignalo'})
         return ("Pedido added", 201)
     except Exception as e:
@@ -1024,6 +1033,7 @@ def piezas_lsit():
 @app.route('/facturas/generate', methods=['POST'])
 @internal_required
 def facturas_generate():
+    print('Received invoice generation request:', request.json)
     pedido_id = request.json.get('pedido_id')   
     path = files.generate_invoice(pedido_id)
     return path, 201
@@ -1083,6 +1093,7 @@ def api_notify():
     """Send a notification from the logged-in user to one or many recipients.
     JSON body: { to: <username>|[usernames]|'all', message: <str>, persist: <bool, default true> }
     """
+    print("called")
     payload = request.get_json(silent=True)
     if not payload or 'message' not in payload:
         return ("Missing message", 400)

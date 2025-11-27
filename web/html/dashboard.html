@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
+    
     <div class="layout">
+        
         <aside>
             <div class="brand">App Gestión</div>
             <input id="filter" class="search" placeholder="Filtrar menú..." />
@@ -34,7 +36,6 @@
                         <img src="/img/logo.png" alt="Logo" style="width:24px;height:24px">
                     </div>
                     <div class="enterprise-name">SUIMCO</div>
-                </div>
                 <div style="display:flex;align-items:center;gap:12px">
                     <div class="small" id="status">Estado</div>
                     <a href="/logout" class="logout-btn">Cerrar sesión</a>
@@ -139,8 +140,7 @@
                 li.style.display = ok ? '' : 'none';
                 if(ok) visible++;
             });
-            const totalLinks = menuEl.querySelectorAll('.submenu a').length;
-            statusEl.textContent = `${visible} grupos — ${totalLinks} enlaces`;
+            
         }
 
         // debounce
