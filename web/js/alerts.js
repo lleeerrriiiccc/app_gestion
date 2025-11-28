@@ -49,7 +49,7 @@
         const ttl = (typeof opts.ttl === 'number') ? opts.ttl : 10000;
         const hide = ()=>{ t.classList.remove('show'); t.classList.add('hide'); setTimeout(()=> t.remove(), 300); };
         const timeoutId = setTimeout(hide, ttl);
-        t.addEventListener('click', ()=>{ clearTimeout(timeoutId); hide(); });
+        t.addEventListener('click', ()=>{ window.location.href = opts.url});
         return t;
     }
 
@@ -69,7 +69,8 @@
                 socket.on('connect_error', (err)=>{ console.error('Socket connect error', err); showToast('Error conectando a notificaciones', {type:'info', ttl:8000}); if(options.onError) options.onError(err); });
                 socket.on('notificacion', (payload)=>{
                     console.log(payload.mensaje);
-                    try{const m = payload.mensaje; showToast(m, {type:'success', ttl:10000}); }catch(e){ showToast('Notificación recibida', {type:'success', ttl:10000}); }
+                    console.log(payload.url);
+                    try{const m = payload.mensaje; showToast(m, {type:'success', ttl:10000, url: payload.url || '#'}); }catch(e){ showToast('Notificación recibida', {type:'success', ttl:10000}); }
                 });
                 // expose
                 Alerts.socket = socket;

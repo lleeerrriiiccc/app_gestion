@@ -180,6 +180,20 @@
   }
 
   load();
+  const params = new URLSearchParams(window.location.search);
+const targetPedido = params.get('id');
+if (targetPedido) {
+  // Esperar un momento a que se construya la tabla
+  setTimeout(() => {
+    const headers = document.querySelectorAll('.group-header');
+    headers.forEach(header => {
+      const match = header.textContent.match(/Pedido\s([^\s]+)/);
+      if (match && match[1] === targetPedido) {
+        header.click(); // abrir el pedido
+      }
+    });
+  }, 200);
+}
 })();
 </script>
   <script src="/js/alerts.js"></script>

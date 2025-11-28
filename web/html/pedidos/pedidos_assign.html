@@ -282,7 +282,8 @@
           try{
             if (window.Alerts && typeof window.Alerts.sendNotification === 'function'){
               // send a minimal message; the server will handle delivery to that user
-              Alerts.sendNotification({ to: user, message: 'Nuevo pedido asignado', persist: true })
+              console.log('/pedidos/assigned?id=' + encodeURIComponent(pedidoId));
+              Alerts.sendNotification({ to: user, message: 'Nuevo pedido asignado', persist: true, url: '/pedidos/assigned?id=' + encodeURIComponent(pedidoId) })
                 .then(resp => { if (!resp || !resp.ok) console.warn('Notification API returned', resp && resp.status); })
                 .catch(err => console.warn('Notification send error', err));
             } else {

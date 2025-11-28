@@ -702,9 +702,19 @@ def update_assignment(pedido, empleado, proceso, idlinia, maquina=None, estado=N
     # Build query dynamically to avoid overwriting with NULLs when values omitted
     data = {"pedido": pedido, "empleado": empleado, "proceso": proceso, "idlinia": idlinia}
     if maquina is None:
-        maquina = 'null'
+        query = f"SELECT maquina FROM assignaciones WHERE pedido = {data['pedido']} AND proceso = {data['proceso']} AND idlinia = {data['idlinia']};"
+        results = read_data(query)
+        if results and results[0]['maquina'] is not None:
+            maquina = results[0]['maquina']
+        else:
+            maquina = 'null'
     if estado is None:
-        estado = 'null'
+        query = f"SELECT estado FROM assignaciones WHERE pedido = {data['pedido']} AND proceso = {data['proceso']} AND idlinia = {data['idlinia']};"
+        results = read_data(query)
+        if results and results[0]['estado'] is not None:
+            estado = results[0]['estado']
+        else:
+            estado = 'null'
     if empleado is None:
         empleado = 'null'
     data = {"pedido": pedido, "empleado": empleado, "proceso": proceso, "idlinia": idlinia, "maquina": maquina, "estado": estado}

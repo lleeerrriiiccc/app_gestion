@@ -862,7 +862,6 @@ def pedidos():
             'to': session.get('user'),
             'mensaje': 'Se ha añadido un nuevo pedido asignalo!!'
         }
-        print(payload)
         ntf.send_notification(payload=payload, socketio=socketio)
         #socketio.emit('notificacion', {'usuario': client, 'mensaje': 'Se ha añadido un nuevo pedido asignalo'})
         return ("Pedido added", 201)
@@ -889,6 +888,11 @@ def pedidos_delete():
         return ("Missing id", 400)
     try:
         db.delete_pedido(pedido_id)
+        payload = {
+            'to': session.get('user'),
+            'mensaje': 'Se ha eliminado un pedido!!'
+        }
+        ntf.send_notification(payload=payload, socketio=socketio)
         return ("Pedido deleted", 200)
     except Exception as e:
         print('pedidos_delete error:', e)
@@ -1101,18 +1105,19 @@ def api_notify():
     to = payload.get('to')
     message = payload.get('message')
     persist = payload.get('persist', True)
+    url = payload.get('url', None)
     try:
         # persist and emit
         if not to or to == 'all' or to == 'broadcast':
             db.add_notification(None, sender, message, metadata=None, persist=persist)
-            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message})
+            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message, 'url': url})
         elif isinstance(to, list):
             for u in to:
                 db.add_notification(u, sender, message, metadata=None, persist=persist)
-                socketio.emit('notificacion', {'usuario': sender, 'mensaje': message}, room=str(u))
+                socketio.emit('notificacion', {'usuario': sender, 'mensaje': message, 'url': url}, room=str(u))
         else:
             db.add_notification(to, sender, message, metadata=None, persist=persist)
-            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message}, room=str(to))
+            socketio.emit('notificacion', {'usuario': sender, 'mensaje': message, 'url': url}, room=str(to))
         return ('Notification sent', 201)
     except Exception as e:
         print('api_notify error:', e)
