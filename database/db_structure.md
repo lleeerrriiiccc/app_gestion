@@ -9,6 +9,8 @@
 | maquina | int(11) | YES | MUL | None |  |
 | idlinia | int(11) | YES | MUL | None |  |
 | estado | int(11) | YES |  | 0 |  |
+| fecha_entrada | date | YES |  | None |  |
+| fecha_salida | date | YES |  | None |  |
 
 ### Relaciones:
 - empleado → users.id
@@ -104,6 +106,17 @@
 ### Relaciones:
 - proceso → procesos.idproceso
 
+## Tabla: notificaciones
+| Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
+|----------|------|------|-------|------------------|--------|
+| id | int(11) | NO | PRI | None | auto_increment |
+| usuario_destino | varchar(255) | YES |  | None |  |
+| remitente | varchar(255) | YES |  | None |  |
+| mensaje | text | YES |  | None |  |
+| metadata | longtext | YES |  | None |  |
+| leido | tinyint(1) | YES |  | 0 |  |
+| fecha | datetime | YES |  | current_timestamp() |  |
+
 ## Tabla: pedidos
 | Columna | Tipo | Nulo | Clave | Valor por defecto | Extra |
 |----------|------|------|-------|------------------|--------|
@@ -113,6 +126,7 @@
 | fecha_taller | date | YES |  | None |  |
 | estado | int(11) | YES |  | 0 |  |
 | assignado | int(11) | YES |  | 0 |  |
+| fecha_completado | date | YES |  | None |  |
 
 ### Relaciones:
 - cliente → clientes.idcliente
