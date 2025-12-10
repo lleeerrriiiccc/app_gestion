@@ -873,8 +873,14 @@ def pedidos():
 @app.route('/pedidos/detalles', methods=['GET'])
 @login_required
 def pedido_details():
+    user_dept = db.get_departments(session.get('user'))
+    print('User department:', user_dept[0]['iddept'])
     pedido_id = request.args.get('id')
-    return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
+    if user_dept[0]['iddept'] != 6:
+        return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
+    elif user_dept[0]['iddept'] == 6:
+        return render_template('pedidos/pedido_details_internal.html', pedido_id=pedido_id)
+    
 
 #Eliminar pedidos
 @app.route('/pedidos/delete', methods=['GET', 'POST'])

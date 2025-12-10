@@ -782,8 +782,17 @@ def last_invoice_number():
     else:
         return 0
     
-def get_departments():
+def get_departments(username=None):
     """Return list of departments from departamentos table."""
+    if username is not None:
+        query = """
+        SELECT d.iddept, d.name
+        FROM departamentos d
+        INNER JOIN users u ON d.iddept = u.dept
+        WHERE u.user = %s;
+        """
+        results = read_data(query, (username,))
+        return results
     query = "SELECT iddept, name FROM departamentos;"
     results = read_data(query)
     return results

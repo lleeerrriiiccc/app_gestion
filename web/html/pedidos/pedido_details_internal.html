@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pedido — Detalles</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <style>main{padding:20px}</style>
+</head>
+<body>
+    <main class="card card--wide">
+        <div class="module-header">
+            <div class="badge">Pedido</div>
+            <div class="small">Detalles del pedido</div>
+        </div>
+
+        <section>
+            <div id="meta" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                    <table>
+                        <tr>
+                            <td><div class="muted">ID</div></td>
+                            <td><div id="pedidoId"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">ID Cliente</div></td>
+                            <td><div id="clienteName"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Fecha producción</div></td>
+                            <td><div id="fecha"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Estado</div></td>
+                            <td><div id="estado"></div></td>
+                        </tr>
+                        <tr>
+                            <td><div class="muted">Dirección envío</div></td>
+                            <td><div id="direccionId"></div></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <hr style="margin:12px 0">
+
+            <div>
+                <div class="muted">Productos</div>
+                <div id="linesList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+                <div style="margin-top:12px;font-weight:600">Total: <span id="orderTotal">0</span> €</div>
+            </div>
+
+            <div style="margin-top:18px">
+                <button onclick="if(window.opener) { window.close(); } else { window.history.back(); }" class="ghost">Volver</button>
+            </div>
+        </section>
+    </main>
+
+<script>
+// PEDIDO_ID is injected server-side
+const PEDIDO_ID = "{{ pedido_id }}";
+
+const pedidoIdEl = document.getElementById('pedidoId');
+const clienteNameEl = document.getElementById('clienteName');
+const fechaEl = document.getElementById('fecha');
+const estadoEl = document.getElementById('estado');
+const linesList = document.getElementById('linesList');
+const orderTotalEl = document.getElementById('orderTotal');
+
+
+let pedidoData = null;
+
+async function loadPedido(){
+    const res = await fetch('/api/pedido?id=' + encodeURIComponent(PEDIDO_ID));
+    if(!res.ok) { alert('Error cargando pedido'); return; }
+    const data = await res.json();
+    pedidoData = data.pedido || {};
+    const lines = data.lines || [];
+    renderMeta(pedidoData, data.direccion_envio);
+    renderLines(lines);
+}
+
+function renderMeta(p, direccion){
+    pedidoIdEl.textContent = p.idpedido || PEDIDO_ID;
+    clienteNameEl.textContent = p.cliente_nombre || '';
+    fechaEl.textContent = p.fecha_taller || '';
+    var estado = p.estado;
+    if (estado == 0) {
+        estado = 'Pendiente';
+    }
+    else if (estado == 1) {
+        estado = 'En proceso';
+    }
+    else if (estado == 2) {
+        estado = 'Completado';
+    }
+    else {
+        estado = 'Desconocido';
+    }
+    estadoEl.textContent = estado || '';
+}
+
+
+function renderLines(lines){
+    console.log('Lines:', lines);
+    linesList.innerHTML = '';
+    let total = 0;
+    if(!lines || lines.length===0){ linesList.innerHTML = '<div class="small">No hay líneas</div>'; orderTotalEl.textContent = '0'; return; }
+    lines.forEach(l=>{
+        const div = document.createElement('div');
+        div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.gap='8px';
+        const left = document.createElement('div'); left.style.flex='1';
+        left.innerHTML = `<div style="font-weight:600">${escapeHtml(l.producto_nombre||'—')}</div><div class="muted">${escapeHtml(l.producto_codigo||'')}</div>`;
+        const mid = document.createElement('div'); mid.style.width='120px'; mid.textContent = (l.cantidad||0) + ' x ' + (l.producto_precio||'0') + '€';
+        const right = document.createElement('div'); right.style.width='120px'; right.textContent = ((Number(l.cantidad||0) * Number(l.producto_precio||0)) || 0) + ' €';
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.value = l.producto;
+        
+        const despieceBtn = document.createElement('button'); despieceBtn.className='ghost'; despieceBtn.textContent='Ver despiece';
+        despieceBtn.addEventListener('click', ()=>{
+            viewDetails({currentTarget: despieceBtn});
+        });
+        div.appendChild(left); div.appendChild(mid); div.appendChild(right); div.appendChild(despieceBtn); div.appendChild(input);
+        linesList.appendChild(div);
+        total += (Number(l.cantidad||0) * Number(l.producto_precio||0)) || 0;
+    });
+    orderTotalEl.textContent = total.toFixed(2);
+}
+
+function escapeHtml(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// init
+loadPedido();
+
+function viewDetails(ev){
+    let button = ev.currentTarget;
+    let productid = button.nextElementSibling.value;
+    window.open('/products/despiece?id=' + encodeURIComponent(productid), '_blank');
+}
+</script>
+    <script src="/js/alerts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+        });
+    </script>
+</body>
+</html>
