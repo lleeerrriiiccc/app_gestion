@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Despiece de Producto</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <main class="card card--wide">
+    <div class="module-header">
+      <div class="badge">Productos</div>
+      <div class="small">Ver Despiece</div>
+    </div>
+
+    <section>
+
+      <div class="table-responsive" style="margin-top:12px">
+        <table id="despieceTable">
+          <thead>
+            <tr><th>Nombre</th><th>Código</th><th>Plano</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div style="margin-top:12px">
+      <button class="ghost" onclick="window.close()">Volver</button>
+    </div>
+  </main>
+
+<script>
+    
+(async function(){
+  const tbody = document.querySelector('#despieceTable tbody');
+
+  function escape(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadDespiece(productId){
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Cargando...</td></tr>';
+    if(!productId){ tbody.innerHTML = '<tr><td colspan="3" class="empty">Seleccione un producto</td></tr>'; return; }
+    try{
+      const res = await fetch('/api/producto/piezas?id='+encodeURIComponent(productId));
+      if(!res.ok){ tbody.innerHTML = '<tr><td colspan="3" class="empty">Error cargando despiece</td></tr>'; return; }
+      const rows = await res.json();
+      if(!rows || rows.length===0){ tbody.innerHTML = '<tr><td colspan="3" class="empty">No hay piezas para este producto</td></tr>'; return; }
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const plano = r.plano || r.plano_file || r.plano_filename || r.plano || '';
+        const planoLink = plano ? `<a href="/pdf/planos/piezas/${encodeURIComponent(plano)}" target="_blank">Ver plano</a>` : '—';
+        tr.innerHTML = `
+          <td>${escape(r.name || r.nombre || '')}</td>
+          <td>${escape(r.codigo || '')}</td>
+          <td>${planoLink}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }catch(e){ console.error(e); tbody.innerHTML = '<tr><td colspan="3" class="empty">Error cargando despiece</td></tr>'; }
+  }
+
+try{
+        var productId = "{{ request.args.get('id', '') }}";
+
+        const select = document.getElementById('productSelect');
+        loadDespiece(productId);
+    }catch(e){
+        console.error(e);
+    }
+})();
+
+</script>
+  <script src="/js/alerts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      try{ Alerts.initSocket({ onConnect:()=>console.log('alerts connected'), onError:(e)=>console.warn('alerts error', e) }); }catch(e){ console.warn('Alerts init error', e); }
+    });
+  </script>
+</body>
+</html>

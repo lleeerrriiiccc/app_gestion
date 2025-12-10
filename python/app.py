@@ -874,13 +874,11 @@ def pedidos():
 @login_required
 def pedido_details():
     user_dept = db.get_departments(session.get('user'))
-    print('User department:', user_dept[0]['iddept'])
     pedido_id = request.args.get('id')
     if user_dept[0]['iddept'] != 6:
         return render_template('pedidos/pedido_details.html', pedido_id=pedido_id)
     elif user_dept[0]['iddept'] == 6:
         return render_template('pedidos/pedido_details_internal.html', pedido_id=pedido_id)
-    
 
 #Eliminar pedidos
 @app.route('/pedidos/delete', methods=['GET', 'POST'])
@@ -1033,7 +1031,12 @@ def api_producto_piezas():
 @app.route('/products/despiece', methods=['GET'])
 @login_required
 def products_despiece():
-    return render_template('productos/product_despiece.html')
+    user_dept = db.get_departments(session.get('user'))
+    if user_dept[0]['iddept'] != 6:
+        return render_template('productos/product_despiece.html')
+    elif user_dept[0]['iddept'] == 6:
+        return render_template('productos/product_despiece _internal.html')
+
 
 @app.route('/piezas/list', methods=['GET'])
 @login_required
@@ -1161,4 +1164,4 @@ def api_mark_read():
         return (f'Error: {e}', 500)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=80)
+    socketio.run(app, debug=True, host='0.0.0.0', port=80, log_output=False)
