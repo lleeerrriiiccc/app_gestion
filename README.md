@@ -225,14 +225,3 @@ Relaciones principales:
 2. Añadir pruebas automáticas (pytest) y pipeline CI.
 3. Mejorar UX del autocomplete con navegación por teclado.
 4. Añadir controles de autorización más finos para rutas sensibles (roles/privilegios por acción).
-
----
-
-Si quieres, puedo:
-- Generar documentación técnica por cada función con firmas (docstrings) directamente en `python/database.py`.
-- Añadir tests básicos que comprueben los endpoints más críticos.
-- Generar un `docker-compose` para levantar una instancia MySQL + la app para desarrollo.
-
-Dime cuál de estas tareas quieres que haga a continuación.
-
----
