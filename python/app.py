@@ -1,7 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, abort, jsonify, flash
 import requests
 from database import *
 from encription import *
@@ -93,15 +93,14 @@ def login():
     password = request.form.get('password') or request.args.get('password')
 
     if not db.check_params([user, password]):
-        abort(400)
+        return ("Missing parameters", 400)
 
     res = db.get_users(user)
     if not res:
         # user not found
-        abort(401)
+        return render_template('login.html', error="Usuario o contraseña no válidos")
     
     stored_hash = res[0]['pass']
-    print(res)
     if check_password(password, stored_hash):
         token = jwt.encode({
         "username": user,
@@ -112,7 +111,7 @@ def login():
         resp.set_cookie("token", token, httponly=True, samesite="Strict")
         return resp
     else:
-        abort(401)
+        return render_template('login.html', error="Usuario o contraseña no válidos")
 
 # Logout endpoint
 @app.route('/logout')
@@ -146,7 +145,7 @@ def internal_required(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
         print('Request from IP:', request.remote_addr)
-        if request.remote_addr == '10.94.255.191':  # Example internal IP
+        if request.remote_addr == '10.94.255.191' or request.remote_addr == '192.168.1.24':  # Example internal IP
             return f(*args, **kwargs)
         return abort(403)
     return wrapped

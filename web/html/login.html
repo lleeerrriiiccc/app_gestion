@@ -20,6 +20,9 @@
 
             <div class="actions" style="margin-top:12px">
                 <button type="submit" class="primary">Iniciar sesión</button>
+                {% if error %}
+                    <p style="color:red;">{{ error }}</p>
+                {% endif %}
             </div>
         </form>
     </main>
