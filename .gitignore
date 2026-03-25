@@ -1,0 +1,32 @@
+# Archivos de entorno y configuraciones sensibles
+.env
+*.env
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+.env/
+
+# Archivos de configuración de IDE
+.vscode/
+.idea/
+
+# Logs y bases de datos locales
+*.log
+*.sqlite3
+*.db
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos generados por herramientas de build
+build/
+dist/
+*.egg-info/
