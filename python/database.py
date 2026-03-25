@@ -888,4 +888,25 @@ def check_pedido_status(pedido_id):
         return True
     return False
 
+def get_invoice(invoice_id):
+    """Return invoice info for a given invoice_id."""
+    query = """
+    SELECT 
+    f.idfactura,
+    c.name AS cliente,
+    f.ubicacion_factura,
+    f.factura_pendiente,
+    f.email,
+    f.pedido,
+    DATE_FORMAT(f.fecha, '%d-%m-%Y') AS fecha
+    FROM facturas f
+    INNER JOIN clientes c ON f.cliente = c.idcliente
+    WHERE f.idfactura = %s
+    """
+    results = read_data(query, (invoice_id,))
+    if results:
+        return results[0]
+    else:
+        return None
+
 
