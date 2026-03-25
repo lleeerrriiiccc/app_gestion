@@ -4,15 +4,10 @@ from email.mime.text import MIMEText
 from email import encoders
 import database as db
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 FROM = 'financierosu@gmail.com'
 sender_address = FROM
-sender_pass = os.getenv('MAILPASSWD')
-
-
+sender_pass = 'etsk gplh fdjq ebxz'
 
 def buil_fact_reminder_mail(invoice_id):
     data = db.get_invoice(invoice_id)
@@ -53,5 +48,3 @@ def send_mail(subject, content, receiver, attachments=None):
     session.login(sender_address, sender_pass)
     session.sendmail(sender_address, receiver, message.as_string())
     session.quit()
-
-
