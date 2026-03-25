@@ -4,10 +4,13 @@ from email.mime.text import MIMEText
 from email import encoders
 import database as db
 import os
+import dotenv
+dotenv.load_dotenv()  # Carga las variables de entorno desde el archivo .env
+
 
 FROM = 'financierosu@gmail.com'
 sender_address = FROM
-sender_pass = 'etsk gplh fdjq ebxz'
+sender_pass = os.getenv('MAILPASSWD')
 
 def buil_fact_reminder_mail(invoice_id):
     data = db.get_invoice(invoice_id)
